@@ -1661,17 +1661,28 @@
         while ((m = re.exec(String(text || "")))) n += Number(m[1]) || 0;
         return n;
       }
+
+      function errorItems(e) {
+        const text = e.body != null ? e.body : String(e.diagnosis || "");
+        const items = [];
+        const re = /([^•\n]+?)（(\d+)次）/g;
+        let m;
+        while ((m = re.exec(text))) {
+          let label = m[1].replace(/^[\s•]+/, "").trim();
+          if (!label || label === "零失誤") continue;
+          if (label === "分割後資料不足") label = "分割後圖形資料不足";
+          const n = Number(m[2]) || 0;
+          if (n) items.push([label, n]);
+        }
+        return items;
+      }
       function topMisses(logs, n) {
         const counts = new Map();
         (logs || []).forEach((e) => {
-          const re = /([^•\n]+?)（(\d+)次）/g;
-          let m;
-          while ((m = re.exec(String(e.body || "")))) {
-            let label = m[1].replace(/^[\s•]+/, "").trim();
-            if (!label || label === "零失誤") continue;
-            if (label === "分割後資料不足") label = "分割後圖形資料不足";
-            counts.set(label, (counts.get(label) || 0) + (Number(m[2]) || 0));
-          }
+          errorItems(e).forEach(([label, count]) => {
+            if (!label || !count) return;
+            counts.set(label, (counts.get(label) || 0) + count);
+          });
         });
         return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "zh")).slice(0, n || 3);
       }
@@ -1926,6 +1937,58 @@
           if (btn) placeFilterMenu(btn);
         }
       }
+
+      function studentKeyOf(e) {
+        return `${e.classId}__${e.studentId}`;
+      }
+      function errorTotal(e) {
+        return errorItems(e).reduce((n, it) => n + (it[1] || 0), 0);
+      }
+      function isRealAttempt(e) {
+        return (e.done || 0) > 0 || errorTotal(e) > 0;
+      }
+      function latestReal(logs) {
+        const by = new Map();
+        (logs || []).forEach((e, i) => {
+          if (!isRealAttempt(e)) return;
+          const key = studentKeyOf(e);
+          const prev = by.get(key);
+          const stamp = String(e.time || "");
+          if (!prev || stamp > prev.stamp || (stamp === prev.stamp && i >= prev.i)) by.set(key, { e, stamp, i });
+        });
+        return [...by.values()].map((x) => x.e);
+      }
+      function formatAvg(n) {
+        return String(Math.round(n * 10) / 10);
+      }
+
+      function fullNeed(e) {
+        const track = e.track || String(e.diagnosis || "").split("\n")[0].split("｜")[0];
+        return track === "功課" ? HW_TOTAL : 1;
+      }
+      function bestFinished(logs) {
+        const by = new Map();
+        (logs || []).forEach((e) => {
+          if ((e.done || 0) < fullNeed(e) || !(e.avgSec > 0)) return;
+          const key = studentKeyOf(e);
+          const prev = by.get(key);
+          const better = !prev || (e.done || 0) > (prev.done || 0) || ((e.done || 0) === (prev.done || 0) && (e.avgSec || 0) < (prev.avgSec || 0));
+          if (better) by.set(key, e);
+        });
+        return [...by.values()];
+      }
+
+      function dashCardsHtml(logs) {
+        const finished = bestFinished(logs);
+        const recent = latestReal(logs);
+        const timeText = finished.length ? formatClock(Math.round(finished.reduce((n, e) => n + (e.avgSec || 0), 0) / finished.length)) : "—";
+        const errText = recent.length ? formatAvg(recent.reduce((n, e) => n + errorTotal(e), 0) / recent.length) : "—";
+        const missText = recent.length ? topMissHtml(recent) : "—";
+        return `
+          <div class="stat s1"><b>平均完成時間</b><strong>${timeText}</strong></div>
+          <div class="stat s2"><b>平均錯處次數</b><strong>${errText}</strong></div>
+          <div class="stat s3 errs"><b>三大主要錯處</b><div class="miss3">${missText}</div></div>`;
+      }
       function paintDash() {
         dashCols().forEach((col) => {
           const sel = dashFilters[col.key];
@@ -1937,16 +2000,11 @@
         const sourceEl = $("dashSource");
         const base = classLogs();
         const logs = base.filter(passesFilters);
-        const avgTime = logs.length ? Math.round(logs.reduce((n, e) => n + (e.avgSec || 0), 0) / logs.length) : 0;
-        const avgHints = logs.length ? Math.round((logs.reduce((n, e) => n + (e.hints || 0), 0) / logs.length) * 10) / 10 : 0;
         const classes = [...new Set(dashAllLogs.map((s) => s.classId).filter(Boolean))].sort();
         $("classFilter").innerHTML = `<option value="ALL">全部班別</option>` +
           classes.map((c) => `<option value="${escapeHtml(c)}" ${c === dashClass ? "selected" : ""}>${escapeHtml(c)}</option>`).join("");
         if ($("modeFilter")) $("modeFilter").value = dashView;
-        $("analysisCards").innerHTML = `
-          <div class="stat s1"><b>平均用時</b><strong>${logs.length ? avgTime + "秒" : "—"}</strong></div>
-          <div class="stat s2"><b>平均提醒次數</b><strong>${logs.length ? avgHints : "—"}</strong></div>
-          <div class="stat s3 errs"><b>三大主要錯處</b><div class="miss3">${logs.length ? topMissHtml(logs) : "—"}</div></div>`;
+        $("analysisCards").innerHTML = dashCardsHtml(logs);
         if ($("dashCount")) $("dashCount").textContent = dashAllLogs.length ? `顯示 ${logs.length} / ${base.length} 筆` : "";
         if ($("clearFiltersBtn")) $("clearFiltersBtn").style.visibility = anyFilterOn() ? "visible" : "hidden";
         if (!dashAllLogs.length) {
@@ -2037,8 +2095,8 @@
         if (filterClass) dashClass = filterClass;
         $("studentRecords").innerHTML = `<div class="empty">載入全班分數…</div>`;
         $("analysisCards").innerHTML = `
-          <div class="stat s1"><b>平均用時</b><strong>…</strong></div>
-          <div class="stat s2"><b>平均提醒次數</b><strong>…</strong></div>
+          <div class="stat s1"><b>平均完成時間</b><strong>…</strong></div>
+          <div class="stat s2"><b>平均錯處次數</b><strong>…</strong></div>
           <div class="stat s3 errs"><b>三大主要錯處</b><div class="miss3">…</div></div>`;
         let source = "";
         try { dashAllLogs = await loadSheetLogs(!!force); source = "Google 試算表"; }
