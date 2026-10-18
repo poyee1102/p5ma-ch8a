@@ -1,0 +1,3911 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="面積魔術師：多邊形" />
+  <title>面積魔術師：多邊形（分割法）</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Noto+Sans+TC:wght@700;900&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --pink: #ff7eb6; --pink-deep: #ee4d93;
+      --sky: #5cc8ff; --sky-deep: #2a9adf;
+      --lemon: #ffe066; --lemon-deep: #e4b82a;
+      --lilac: #c9b6ff; --lilac-deep: #9b7af0;
+      --mint: #7eecc8; --mint-deep: #3cbc9a;
+      --ink: #1d3a5c; --soft: #5d7590;
+      --safe-t: env(safe-area-inset-top, 0px);
+      --safe-b: env(safe-area-inset-bottom, 0px);
+      --safe-l: env(safe-area-inset-left, 0px);
+      --safe-r: env(safe-area-inset-right, 0px);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    html, body { width: 100%; height: 100%; overflow: hidden; overscroll-behavior: none; }
+    body {
+      position: fixed; inset: 0;
+      font-family: "Noto Sans TC", "PingFang HK", sans-serif;
+      color: var(--ink);
+      background:
+        linear-gradient(180deg, rgba(170, 214, 255, 0.55) 0%, rgba(170, 214, 255, 0) 36%),
+        linear-gradient(125deg, rgba(210, 232, 255, 0.72) 0%, rgba(210, 232, 255, 0) 48%),
+        linear-gradient(200deg, rgba(186, 220, 255, 0.4) 10%, rgba(186, 220, 255, 0) 52%),
+        linear-gradient(165deg, #f5faff 0%, #d5e9ff 40%, #e8f3ff 70%, #f8fbff 100%);
+      user-select: none;
+    }
+    .fun-bg { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+    .deco { position: absolute; }
+    .deco svg { width: 100%; height: 100%; display: block; overflow: visible; }
+    .deco-lt { top: 4%; left: 11%; width: 34vmin; aspect-ratio: 200 / 173; transform: rotate(-16deg); }
+    .deco-lbl { top: 36%; left: 1%; width: 32vmin; aspect-ratio: 180 / 160; transform: rotate(14deg); }
+    .deco-lbr { top: 68%; left: 13%; width: 28vmin; aspect-ratio: 180 / 200; transform: rotate(-10deg); }
+    .deco-rt { top: 6%; right: 2%; width: 32vmin; aspect-ratio: 200 / 176; transform: rotate(18deg); }
+    .deco-rbl { top: 38%; right: 11%; width: 34vmin; aspect-ratio: 200 / 160; transform: rotate(-18deg); }
+    .deco-rbr { top: 70%; right: 3%; width: 36vmin; aspect-ratio: 232 / 150; transform: rotate(12deg); }
+    button, input { font-family: inherit; }
+    button { cursor: pointer; touch-action: manipulation; }
+    input { user-select: text; -webkit-user-select: text; }
+
+    @keyframes popIn { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: none; } }
+    @keyframes bounce { 0% { transform: scale(1); } 35% { transform: scale(0.88); } 70% { transform: scale(1.08); } 100% { transform: scale(1); } }
+    @keyframes floaty { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+    @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+    .bounce { animation: bounce 0.35s ease; }
+    .shake { animation: shake 0.4s ease; }
+
+    .app {
+      position: relative; z-index: 1;
+      height: 100%; width: 100%; overflow: hidden; display: flex;
+      padding: calc(6px + var(--safe-t)) calc(8px + var(--safe-r)) calc(6px + var(--safe-b)) calc(8px + var(--safe-l));
+    }
+    .screen {
+      display: none; width: min(1280px, 100%); margin: 0 auto;
+      height: 100%; min-height: 0; flex-direction: column; overflow: hidden;
+      animation: popIn 0.35s ease;
+    }
+    .screen.active { display: flex; }
+    .card {
+      background: rgba(255,255,255,0.92); border: 3px solid #fff; border-radius: 26px;
+      box-shadow: 0 14px 30px rgba(61, 139, 253, 0.16); min-height: 0; color: var(--ink);
+    }
+    .candy {
+      border: 0; border-radius: 999px; font-weight: 900; padding: 10px 18px;
+      transition: transform 0.12s ease, filter 0.12s ease;
+    }
+    .candy:hover { filter: brightness(1.05); }
+    .candy:active { transform: translateY(4px) scale(0.96); box-shadow: 0 2px 0 rgba(0,0,0,0.18) !important; animation: bounce 0.3s ease; }
+    .candy:disabled { filter: saturate(0.55); pointer-events: none; }
+    .sky { background: var(--sky); color: #0a3a5c; box-shadow: 0 6px 0 var(--sky-deep); }
+    .pink { background: var(--pink); color: #fff; box-shadow: 0 6px 0 var(--pink-deep); }
+    .lemon { background: var(--lemon); color: var(--ink); box-shadow: 0 6px 0 var(--lemon-deep); }
+    .mint { background: var(--mint); color: #165f4c; box-shadow: 0 6px 0 var(--mint-deep); }
+    .lilac { background: var(--lilac); color: #fff; box-shadow: 0 6px 0 var(--lilac-deep); }
+    .ghost { background: #fff; color: var(--soft); box-shadow: 0 5px 0 #d5e4f2; }
+
+    #screen-login, #screen-mode { align-items: center; justify-content: center; }
+    .login { width: min(400px, 100%); padding: 22px 18px 16px; text-align: center; }
+    .mode-card { width: min(420px, 100%); }
+    .mascot {
+      width: 72px; height: 72px; margin: 0 auto 6px; border-radius: 50%;
+      display: grid; place-items: center; font-size: 36px; background: #fff;
+      box-shadow: 0 8px 0 #c5ddf5;
+      animation: floaty 2.8s ease-in-out infinite;
+    }
+    .mascot svg { width: 44px; height: auto; display: block; }
+    .title {
+      font-family: "Fredoka", "Noto Sans TC", sans-serif;
+      font-size: clamp(20px, 4.4vh, 30px); font-weight: 900; letter-spacing: 0.03em;
+      margin-bottom: 14px; line-height: 1.3; white-space: normal;
+      background: none; border: 0; box-shadow: none; padding: 0; text-shadow: none;
+    }
+    .title span:nth-child(odd) { color: var(--pink-deep); }
+    .title span:nth-child(even) { color: var(--lilac-deep); }
+    .field { text-align: left; margin-bottom: 10px; }
+    .field label { display: block; font-weight: 900; font-size: 15px; margin-bottom: 4px; }
+    .field input {
+      width: 100%; border: 3px solid #ffe1ec; border-radius: 16px;
+      padding: 10px 12px; font-size: 18px; font-weight: 800; outline: none; background: #fff;
+    }
+    .field input:focus { border-color: var(--pink); }
+    .start { width: 100%; font-size: 22px; padding: 12px; margin: 6px 0 10px; }
+    .teacher-btn {
+      width: 64px; height: 64px; border-radius: 50%; font-size: 13px; line-height: 1.15;
+      padding: 0; margin: 4px auto 0; display: grid; place-items: center;
+    }
+    .login-acts {
+      display: flex; flex-wrap: nowrap; justify-content: center; align-items: center;
+      gap: 22px; margin-top: 4px;
+    }
+    .login-acts .teacher-btn {
+      margin: 0; padding: 0; width: 64px; height: 64px; min-width: 64px;
+      flex: 0 0 64px; font-size: 13px; line-height: 1.2;
+    }
+    .mode-h { font-size: clamp(22px, 3.2vh, 28px); margin-bottom: 14px; }
+    .mode-acts { display: flex; flex-direction: column; gap: 10px; }
+    .mode-acts .candy { width: 100%; font-size: 22px; padding: 14px; }
+    .mode-back { margin-top: 12px; }
+    .rank-note {
+      flex-shrink: 0; font-family: "Fredoka", "Noto Sans TC", sans-serif;
+      font-weight: 900; font-size: clamp(24px, 3.6vh, 32px); line-height: 1.3;
+      color: var(--pink-deep); text-align: center; letter-spacing: 0.04em;
+    }
+    tr.r1 td { background: #fff6c9; }
+    tr.r2 td { background: #eef2f7; }
+    tr.r3 td { background: #f8ead8; }
+
+    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-shrink: 0; margin-bottom: 4px; overflow: visible; }
+    .pill {
+      background: #fff; color: var(--ink); border-radius: 999px; padding: 6px 12px;
+      font-weight: 800; font-size: 16px; box-shadow: 0 4px 0 #d5e4f2; white-space: nowrap;
+    }
+    .timer-wrap { position: relative; flex-shrink: 0; }
+    .timer { font-variant-numeric: tabular-nums; background: #e7f3ff; min-width: 92px; text-align: center; }
+    .timer.hit { background: #ffd0d8; color: #b42318; animation: shake 0.4s ease; }
+    .time-hit {
+      position: absolute; left: 50%; top: 50%; z-index: 3;
+      font-weight: 900; font-size: 16px; color: #b42318;
+      pointer-events: none; opacity: 0; white-space: nowrap;
+      text-shadow: 0 1px 0 #fff, 0 0 8px #fff;
+    }
+    .time-hit.show { animation: timeHitPop 0.7s ease; }
+    @keyframes timeHitPop {
+      0% { opacity: 0; transform: translate(-50%, -40%) scale(0.8); }
+      22% { opacity: 1; transform: translate(-50%, -110%) scale(1.12); }
+      100% { opacity: 0; transform: translate(-50%, -160%) scale(0.96); }
+    }
+    .tiny { padding: 6px 12px; font-size: 13px; }
+
+    .play { flex: 1; min-height: 0; overflow: hidden; padding: 6px; display: flex; flex-direction: column; gap: 4px; background: #fff; }
+    #screen-mode .card { background: #fff; }
+    .task-h { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-shrink: 0; }
+    .task-h h2 { font-size: clamp(18px, 2.8vh, 24px); line-height: 1.3; }
+    .task-h p { font-size: 16px; font-weight: 900; color: var(--soft); white-space: nowrap; }
+    .hintbar {
+      flex-shrink: 0; font-size: clamp(18px, 3vh, 22px); font-weight: 900; color: #5a4a72;
+      background: #e8fff6; border-radius: 12px; padding: 8px 12px; text-align: center;
+      line-height: 1.35; white-space: normal; overflow: hidden;
+    }
+    .hintbar.bad { background: #ffe8ee; color: #9d2340; }
+    .board {
+      flex: 1; min-height: 0; position: relative;
+      display: flex; align-items: stretch; justify-content: center;
+      background: #fff;
+      border-radius: 22px; overflow: hidden;
+      box-shadow: inset 0 0 0 2px rgba(90, 160, 230, 0.35);
+      touch-action: none;
+    }
+    .board::before, .board::after {
+      content: ""; position: absolute; width: 54px; height: 14px; z-index: 2; pointer-events: none;
+      background: #ffe066;
+      box-shadow: 0 2px 0 rgba(228, 184, 42, 0.35);
+    }
+    .board::before { top: 10px; left: 4px; transform: rotate(-45deg); }
+    .board::after { top: 12px; right: 4px; transform: rotate(45deg); }
+    #scene { width: 100%; height: 100%; display: block; touch-action: none; position: relative; z-index: 0; }
+
+    .work { flex-shrink: 0; display: flex; flex-direction: column; gap: 6px; }
+    .piece-row { display: flex; gap: 8px; align-items: flex-start; }
+    .slot { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+    .lab { font-weight: 900; font-size: 15px; line-height: 1.2; white-space: nowrap; }
+    .box {
+      min-height: 44px; border: 3px solid #d5e6f8; border-radius: 12px;
+      background: #fff; font-weight: 800; font-size: clamp(18px, 2.5vh, 22px); padding: 6px 10px;
+      text-align: left; overflow: hidden; white-space: normal; line-height: 1.25;
+    }
+    .box.on { border-color: #2a7de1; }
+    .box.ok { border-color: #3cbc9a; background: #f3fffb; }
+    .eq-row { display: flex; align-items: stretch; gap: 6px; }
+    .eq-row .box { flex: 1.6; min-width: 0; }
+    .eq-row .box.ans { flex: 0.62; text-align: center; }
+    .eq-row.picks { gap: 4px; flex-wrap: nowrap; }
+    .eq-row.picks select.box {
+      flex: 1 1 0; appearance: none; -webkit-appearance: none; cursor: pointer;
+      text-align: center; font-family: inherit; color: inherit;
+      font-size: clamp(14px, 1.9vh, 18px); padding: 4px 18px 4px 6px;
+      background-image: linear-gradient(45deg, transparent 50%, #1d3a5c 50%), linear-gradient(135deg, #1d3a5c 50%, transparent 50%);
+      background-position: calc(100% - 12px) calc(50% - 2px), calc(100% - 7px) calc(50% - 2px);
+      background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; background-color: #fff;
+    }
+    .eq-row.picks select.box.op { flex: 0 0 58px; padding-left: 2px; padding-right: 16px; }
+    .eq-row.picks .box.ans { flex: 0 0 120px; white-space: nowrap; }
+    .eq-row .box.ans.wait { opacity: 0.45; pointer-events: none; }
+    .eq-row.picks select.box:disabled { cursor: default; opacity: 1; }
+    .eq { flex: 0 0 auto; align-self: center; font-weight: 900; font-size: clamp(20px, 2.6vh, 26px); line-height: 1; }
+    .slot.wait { opacity: 0.55; }
+    .under { font-size: 13px; font-weight: 800; color: #6a7f93; line-height: 1.3; }
+    .under.faint { color: #c3ced8; }
+    .keypad { flex-shrink: 0; display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 6px; }
+    .keypad.finish { display: flex; align-items: center; gap: 8px; }
+    .keypad.finish .miss-line {
+      flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;
+      background: #ffe566; border: 2px solid #e8b423; border-radius: 14px;
+      box-shadow: 0 3px 0 #e0b020; padding: 6px 12px 7px;
+      font-size: 15px; font-weight: 900; line-height: 1.35; color: var(--ink);
+    }
+    .keypad.finish .miss-h { line-height: 1.3; }
+    .keypad.finish .miss-item { line-height: 1.35; }
+    .keypad.finish .key { flex: 0 0 auto; width: auto; padding: 0 16px; white-space: nowrap; }
+    .key {
+      height: 40px; border-radius: 12px; font-weight: 900; font-size: 18px; padding: 0;
+      background: #fff; color: var(--ink); box-shadow: 0 4px 0 #d5e4f2;
+    }
+    .key.go { background: var(--mint); color: #165f4c; box-shadow: 0 4px 0 var(--mint-deep); }
+    .key.del { font-size: 15px; }
+    .key.op { background: #e7f3ff; }
+
+    .report {
+      position: fixed; inset: 0; background: rgba(29, 58, 92, 0.42);
+      display: none; place-items: center; z-index: 25; padding: 16px;
+    }
+    .report.show { display: grid; }
+    .report-card {
+      width: min(520px, 100%); background: #fff; border-radius: 32px;
+      padding: 22px 20px 18px; text-align: center; border: 4px solid #fff;
+      box-shadow: 0 18px 40px rgba(90, 160, 230, 0.28); animation: popIn 0.4s ease; color: var(--ink);
+    }
+    .report-card h2 { font-size: clamp(22px, 3.4vh, 28px); margin: 8px 0 10px; }
+    .report-card p { font-weight: 800; line-height: 1.55; margin: 8px 0; font-size: 16px; }
+    .tip {
+      background: #e8fff6; border-radius: 18px; padding: 12px 14px; margin: 12px 0 16px;
+      font-weight: 800; line-height: 1.6; text-align: left; white-space: pre-wrap;
+    }
+
+    .dash-h { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-shrink: 0; margin-bottom: 8px; }
+    .dash-h h1 { font-family: "Fredoka", "Noto Sans TC", sans-serif; font-size: clamp(20px, 3vh, 28px); color: var(--ink); }
+    .dash-h .acts { display: flex; gap: 8px; margin: 0; }
+    .dash { flex: 1; min-height: 0; overflow: hidden; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; flex-shrink: 0; }
+    .stat { border-radius: 16px; padding: 10px; }
+    .stat b { display: block; font-size: 12px; opacity: 0.8; }
+    .stat strong { font-size: clamp(16px, 2.6vh, 24px); display: block; line-height: 1.2; }
+    .stat .miss3 { font-size: 13px; font-weight: 800; line-height: 1.45; }
+    .s1 { background: #d9f8ee; } .s2 { background: #ffe1ea; } .s3 { background: #e5f2ff; }
+    .tools { display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; gap: 8px; flex-wrap: wrap; }
+    .tools select, .tools button.tiny { border: 2px solid #ffe1ec; border-radius: 12px; padding: 4px 8px; font-weight: 800; background: #fff; }
+    .tool-filters { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+    .dash-src, .dash-count { font-size: 12px; font-weight: 800; color: var(--soft); }
+    .records { flex: 1; min-height: 0; overflow: auto; }
+    table { width: 100%; border-collapse: separate; border-spacing: 0; background: #fff; }
+    th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid rgba(16,36,63,0.08); font-size: 12px; }
+    th { background: #e8fff6; position: sticky; top: 0; z-index: 2; white-space: nowrap; }
+    th.col-h { padding-right: 4px; }
+    .col-sort { border: 0; background: transparent; font: inherit; font-weight: 900; cursor: pointer; padding: 0; }
+    th.sorted .col-sort { color: #2a7de1; }
+    .filter-btn {
+      border: 0; background: #d9ecff; color: var(--ink); cursor: pointer;
+      border-radius: 8px; width: 22px; height: 22px; margin-left: 4px;
+      font-size: 12px; font-weight: 900; line-height: 1; vertical-align: middle;
+    }
+    .filter-btn.on { background: #2a7de1; color: #fff; }
+    .score-cell { font-variant-numeric: tabular-nums; font-weight: 900; text-align: center; }
+    th.score-h, td.rank-cell { text-align: center; font-variant-numeric: tabular-nums; }
+    tr.hi .score-cell { color: #1a8f7c; }
+    tr.lo .score-cell { color: #b42318; }
+    .diag-cell { white-space: pre-line; }
+    .empty { text-align: center; padding: 20px; font-weight: 800; color: var(--soft); }
+    .filter-menu {
+      position: fixed; z-index: 30; width: min(280px, calc(100vw - 16px));
+      background: #fff; border-radius: 18px; padding: 10px;
+      box-shadow: 0 16px 36px rgba(29,58,92,0.24); border: 2px solid #d5e6f8;
+      display: none; flex-direction: column; gap: 8px; max-height: min(420px, 70vh);
+    }
+    .filter-menu.show { display: flex; }
+    .filter-menu .fm-title { font-weight: 900; font-size: 14px; text-align: left; }
+    .filter-menu .fm-acts { display: flex; gap: 6px; flex-wrap: wrap; }
+    .filter-menu .fm-acts button {
+      border: 0; border-radius: 999px; font-weight: 900; padding: 6px 10px; font-size: 12px;
+      background: #e8fff6; color: var(--ink); cursor: pointer;
+    }
+    .filter-menu input[type="search"] {
+      width: 100%; border: 2px solid #d5e6f8; border-radius: 12px;
+      padding: 6px 8px; font-weight: 800; font-size: 14px;
+    }
+    .filter-menu .opts { overflow: auto; text-align: left; flex: 1; min-height: 80px; }
+    .filter-menu label { display: flex; gap: 8px; align-items: flex-start; padding: 5px 2px; font-weight: 800; font-size: 13px; cursor: pointer; }
+    .filter-menu label input { margin-top: 2px; }
+
+    .modal { position: fixed; inset: 0; background: rgba(29,58,92,0.4); display: none; place-items: center; z-index: 20; padding: 16px; }
+    .modal.show { display: grid; }
+    .modal-card { width: min(360px, 100%); background: #fff; border-radius: 24px; padding: 18px; text-align: center; color: var(--ink); }
+    .modal-card input {
+      width: 100%; border: 3px solid #ffe1ec; border-radius: 14px;
+      padding: 10px; font-size: 20px; font-weight: 800; text-align: center; margin: 10px 0;
+    }
+    .choice-row { display: flex; gap: 8px; }
+    .choice-row .candy { flex: 1; font-size: 18px; padding: 12px 8px; }
+    canvas#confetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 40; }
+
+    @media (max-height: 720px) {
+      .mascot { width: 56px; height: 56px; }
+      .mascot svg { width: 34px; }
+      .teacher-btn, .login-acts .teacher-btn { width: 52px; height: 52px; min-width: 52px; flex-basis: 52px; font-size: 12px; }
+      .mode-acts .candy { padding: 8px; font-size: 18px; }
+      .hintbar { font-size: 16px; padding: 6px 10px; }
+      .key { height: 32px; font-size: 15px; }
+      .key.del { font-size: 13px; }
+      .box { min-height: 36px; font-size: 16px; padding: 4px 8px; }
+      .eq { font-size: 18px; }
+      .lab { font-size: 14px; }
+      .under { font-size: 12px; }
+      .stat .miss3 { font-size: 12px; line-height: 1.35; }
+      .task-h h2 { font-size: 16px; }
+      .play { padding: 4px; gap: 3px; }
+      .keypad.finish .miss-line { font-size: 13px; padding: 4px 8px 5px; border-radius: 12px; }
+    }
+    @media print {
+      html, body, .app, .screen.active { position: static; height: auto; overflow: visible; }
+      .no-print, canvas, .report, .modal, .filter-menu, .filter-btn, .fun-bg { display: none !important; }
+      .records { overflow: visible; }
+      body { background: #fff; }
+    }
+  </style>
+</head>
+<body>
+  <div class="fun-bg" aria-hidden="true">
+    <div class="deco deco-lt"><svg viewBox="0 0 200 173" preserveAspectRatio="xMidYMid meet"><polygon points="50,0 150,0 200,86.5 150,173 50,173 0,86.5" fill="#ff7eb6" fill-opacity="0.65"/></svg></div>
+    <div class="deco deco-lbl"><svg viewBox="0 0 180 160" preserveAspectRatio="xMidYMid meet"><polygon points="36,8 164,62 164,148 12,148 12,62" fill="#ffe066" fill-opacity="0.62"/></svg></div>
+    <div class="deco deco-lbr"><svg viewBox="0 0 180 200" preserveAspectRatio="xMidYMid meet"><polygon points="90,6 171,53 171,147 90,194 9,147 9,53" fill="#7eecc8" fill-opacity="0.65"/></svg></div>
+    <div class="deco deco-rt"><svg viewBox="0 0 200 176" preserveAspectRatio="xMidYMid meet"><polygon points="46,10 156,10 188,74 142,164 8,74" fill="#c9b6ff" fill-opacity="0.6"/></svg></div>
+    <div class="deco deco-rbl"><svg viewBox="0 0 200 160" preserveAspectRatio="xMidYMid meet"><polygon points="60,12 140,12 188,68 188,148 4,148 4,68" fill="#5cc8ff" fill-opacity="0.65"/></svg></div>
+    <div class="deco deco-rbr"><svg viewBox="0 0 232 150" preserveAspectRatio="xMidYMid meet"><polygon points="46,8 186,54 216,138 46,138 16,54" fill="#f0a04a" fill-opacity="0.62"/></svg></div>
+  </div>
+  <canvas id="confetti"></canvas>
+  <div class="app">
+    <section id="screen-login" class="screen active">
+      <div class="card login">
+        <div class="mascot" aria-hidden="true">
+          <svg viewBox="0 0 22 18" focusable="false">
+            <defs>
+              <linearGradient id="mascotPoly" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#b9dcff"/>
+                <stop offset="1" stop-color="#3d8bfd"/>
+              </linearGradient>
+            </defs>
+            <polygon points="11,1 20,6 17,16 5,16 2,7" fill="url(#mascotPoly)" stroke="#1d4e89" stroke-width="1.2" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <h1 class="title" id="titleWave"></h1>
+        <div class="field">
+          <label for="classId">班別</label>
+          <input id="classId" maxlength="8" placeholder="5A" autocomplete="off" />
+        </div>
+        <div class="field">
+          <label for="studentId">學號</label>
+          <input id="studentId" maxlength="6" placeholder="01" inputmode="numeric" autocomplete="off" />
+        </div>
+        <button class="candy pink start" id="startBtn">開始任務</button>
+        <div class="login-acts">
+          <button class="candy mint teacher-btn" id="rankBtn">學生<br>排行</button>
+          <button class="candy lilac teacher-btn" id="teacherBtn">老師<br>後台</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="screen-mode" class="screen">
+      <div class="card login mode-card">
+        <h2 class="mode-h" id="modeTitle">請選擇</h2>
+        <div class="mode-acts" id="modeActs"></div>
+        <button class="candy ghost tiny mode-back" id="modeBack">返回</button>
+      </div>
+    </section>
+
+    <section id="screen-game" class="screen">
+      <div class="topbar">
+        <div class="pill" id="playerPill">5A 01</div>
+        <div class="pill" id="qPill">課堂（個人）</div>
+        <div class="timer-wrap" id="timerWrap">
+          <div class="pill timer" id="timer">⏱️ 00:00</div>
+          <span class="time-hit" id="timeHit" aria-hidden="true"></span>
+        </div>
+        <div class="pill" id="hintCount">提示0次</div>
+        <button class="candy ghost tiny no-print" id="backLoginBtn">主頁</button>
+      </div>
+      <div class="card play">
+        <div class="task-h">
+          <h2 id="taskTitle">第一題（基礎）</h2>
+          <p id="taskKind">多邊形</p>
+        </div>
+        <div class="hintbar" id="hintBar">請畫出分割線</div>
+        <div class="board" id="board"><canvas id="scene"></canvas></div>
+        <div class="work" id="work"></div>
+        <div class="keypad" id="keypad"></div>
+      </div>
+    </section>
+
+    <section id="screen-dash" class="screen">
+      <div class="dash-h">
+        <h1>老師後台</h1>
+        <div class="acts no-print">
+          <button class="candy lemon tiny" id="printBtn">列印</button>
+          <button class="candy sky tiny" id="refreshDashBtn">重新整理</button>
+          <button class="candy ghost tiny" id="dashBackBtn">返回</button>
+        </div>
+      </div>
+      <div class="card dash">
+        <div class="stats" id="analysisCards"></div>
+        <div class="tools">
+          <strong>全班紀錄 <small id="dashSource" class="dash-src"></small></strong>
+          <div class="tool-filters">
+            <select id="modeFilter" aria-label="項目">
+              <option value="all">全部</option>
+              <option value="group">小組</option>
+              <option value="class">個人</option>
+              <option value="homework">功課</option>
+            </select>
+            <select id="classFilter" aria-label="班別"></select>
+            <span class="dash-count" id="dashCount"></span>
+            <button type="button" class="tiny" id="clearFiltersBtn">清除篩選</button>
+          </div>
+        </div>
+        <div class="records" id="studentRecords"></div>
+      </div>
+    </section>
+
+    <section id="screen-rank" class="screen">
+      <div class="dash-h">
+        <h1>學生排行</h1>
+        <div class="acts no-print">
+          <button class="candy sky tiny" id="rankRefreshBtn">重新整理</button>
+          <button class="candy ghost tiny" id="rankBackBtn">返回</button>
+        </div>
+      </div>
+      <div class="card dash">
+        <p class="rank-note">✨ 數學之星 ✨</p>
+        <div class="records" id="rankRecords"></div>
+      </div>
+    </section>
+  </div>
+
+  <div class="report" id="reportModal">
+    <div class="report-card">
+      <div class="mascot">🏆</div>
+      <h2>成績診斷卡</h2>
+      <p id="reportScore"></p>
+      <div class="tip" id="reportTip"></div>
+      <button class="candy pink" id="reportBackBtn">完成</button>
+    </div>
+  </div>
+  <div id="dashFilterMenu" class="filter-menu"></div>
+  <div class="modal" id="pinModal">
+    <div class="modal-card">
+      <h3>老師後台</h3>
+      <input id="pinInput" type="password" maxlength="8" inputmode="numeric" autocomplete="off" />
+      <div class="choice-row">
+        <button class="candy ghost" id="pinCancel">取消</button>
+        <button class="candy lilac" id="pinOk">確認</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbyGGhtjy7bKzw9M-divK5BZYL0mGcHJwcNoV_xv8VAUalMu_U9ptg8A8wIRQ8cpvQxv/exec";
+      const GAME_ID = "p5ma-ch8a";
+      const CHAPTER = "p5ma-ch8a";
+      const STORE_KEY = "p5ma-ch8a-v1";
+      const TEACHER_PIN = "2246";
+      const PENALTY_SECS = 30;
+      const HW_TOTAL = 5;
+      const TITLE = "面積魔術師：多邊形（分割法）";
+      const MISS_ORDER = ["data", "A", "B", "C", "minus", "half", "pick", "calc"];
+      const MISS_LABEL = {
+        data: "分割後圖形資料不足",
+        A: "圖形A算式錯誤",
+        B: "圖形B算式錯誤",
+        C: "圖形C算式錯誤",
+        minus: "應用了減法",
+        half: "漏除以2",
+        pick: "算式選擇錯誤",
+        calc: "計算錯誤"
+      };
+
+      const GROUP = [
+        {
+          name: "例題", unit: "米",
+          outline: [[0, 4], [12, 4], [12, 0], [11, 0], [4.6, -4.8], [1, 0], [0, 0]],
+          cuts: [[[1, 0], [11, 0]]],
+          pieces: [
+            { letter: "A", shape: "長方形", kind: "rect", div2: false, area: 48, nums: [12, 4], skeleton: "長×闊", at: [6, 2.9], poly: [[0, 0], [12, 0], [12, 4], [0, 4]] },
+            { letter: "B", shape: "三角形", kind: "tri", div2: true, area: 24, nums: [6, 8, 10], skeleton: "底×高÷2", at: [5.53, -1.6], poly: [[1, 0], [11, 0], [4.6, -4.8]] }
+          ],
+          labels: [
+            { t: "12 m", x: 6, y: 4.5 },
+            { t: "4 m", x: 12.55, y: 2 },
+            { t: "10 m", x: 6, y: 0.55 },
+            { t: "6 m", x: 2.2, y: -2.85 },
+            { t: "8 m", x: 8.25, y: -2.95 }
+          ],
+          guides: [],
+          marks: [
+            { at: [0, 4], u: [1, 0], v: [0, -1], when: "always" },
+            { at: [12, 4], u: [-1, 0], v: [0, -1], when: "always" },
+            { at: [0, 0], u: [1, 0], v: [0, 1], when: "always" },
+            { at: [12, 0], u: [-1, 0], v: [0, 1], when: "always" },
+            { at: [4.6, -4.8], u: [-0.6, 0.8], v: [0.8, 0.6], when: "always" }
+          ]
+        },
+        {
+          name: "第一題", unit: "厘米",
+          outline: [[0, 0], [9, 0], [9, 2], [5, 2], [2.5, 8], [0, 2]],
+          cuts: [[[0, 2], [5, 2]]],
+          pieces: [
+            { letter: "A", shape: "三角形", kind: "tri", div2: true, area: 15, nums: [5, 6], skeleton: "底×高÷2", at: [2.5, 3.6], poly: [[0, 2], [5, 2], [2.5, 8]] },
+            { letter: "B", shape: "長方形", kind: "rect", div2: false, area: 18, nums: [9, 2], skeleton: "長×闊", at: [4.6, 1], poly: [[0, 0], [9, 0], [9, 2], [0, 2]] }
+          ],
+          labels: [
+            { t: "9 cm", x: 4.5, y: -0.7 },
+            { t: "2 cm", x: 9.55, y: 1 },
+            { t: "5 cm", x: 1.35, y: 2.7 },
+            { t: "6 cm", x: 0, y: 5 }
+          ],
+          guides: [
+            { a: [0, 2], b: [0, 8] },
+            { a: [0, 8], b: [2.5, 8] }
+          ],
+          marks: [
+            { at: [0, 8], u: [0, -1], v: [1, 0] },
+            { at: [0, 0], u: [1, 0], v: [0, 1] },
+            { at: [9, 0], u: [-1, 0], v: [0, 1] },
+            { at: [9, 2], u: [-1, 0], v: [0, -1] },
+            { at: [0, 2], u: [0, -1], v: [1, 0] }
+          ]
+        },
+        {
+          name: "第二題", unit: "厘米",
+          outline: [[0, 0], [20, 0], [15, 8], [17.5, 14], [2.5, 14], [5, 8]],
+          cuts: [[[5, 8], [15, 8]]],
+          pieces: [
+            { letter: "A", shape: "梯形", kind: "trap", div2: true, area: 75, nums: [15, 10, 6], skeleton: "(上底＋下底)×高÷2", at: [13.6, 11.6], poly: [[5, 8], [15, 8], [17.5, 14], [2.5, 14]] },
+            { letter: "B", shape: "梯形", kind: "trap", div2: true, area: 120, nums: [10, 20, 8], skeleton: "(上底＋下底)×高÷2", at: [14.6, 3.6], poly: [[0, 0], [20, 0], [15, 8], [5, 8]] }
+          ],
+          labels: [
+            { t: "20 cm", x: 10, y: -0.75 },
+            { t: "15 cm", x: 10, y: 14.55 },
+            { t: "10 cm", x: 7.6, y: 9.45 },
+            { t: "8 cm", x: 20, y: 4 },
+            { t: "6 cm", x: 2.5, y: 11 }
+          ],
+          guides: [
+            { a: [2.5, 14], b: [2.5, 8] },
+            { a: [2.5, 8], b: [5, 8] },
+            { a: [20, 0], b: [20, 8] },
+            { a: [20, 8], b: [15, 8] }
+          ],
+          marks: [
+            { at: [2.5, 8], u: [0, 1], v: [1, 0] },
+            { at: [20, 8], u: [0, -1], v: [-1, 0] }
+          ]
+        },
+        {
+          name: "第三題", unit: "厘米",
+          outline: [[0, 0], [6, 0], [6, 2], [11, 2], [11, 6], [6, 6], [8, 10], [2, 10], [0, 6]],
+          cuts: [[[0, 6], [6, 6]], [[6, 2], [6, 6]]],
+          pieces: [
+            { letter: "A", shape: "正方形", kind: "sq", div2: false, area: 36, nums: [6], skeleton: "邊長×邊長", at: [3, 2.8], poly: [[0, 0], [6, 0], [6, 6], [0, 6]] },
+            { letter: "B", shape: "平行四邊形", kind: "para", div2: false, area: 24, nums: [6, 4], skeleton: "底×高", at: [5.7, 8.15], poly: [[0, 6], [6, 6], [8, 10], [2, 10]] },
+            { letter: "C", shape: "長方形", kind: "rect", div2: false, area: 20, nums: [5, 4], skeleton: "長×闊", at: [8.6, 4], poly: [[6, 2], [11, 2], [11, 6], [6, 6]] }
+          ],
+          labels: [
+            { t: "6 cm", x: 3, y: -0.65 },
+            { t: "6 cm", x: -0.75, y: 3 },
+            { t: "5 cm", x: 8.5, y: 1.15 },
+            { t: "4 cm", x: 11.5, y: 4 },
+            { t: "4 cm", x: 0, y: 8 },
+            { t: "6 cm", x: 5, y: 10.45 }
+          ],
+          guides: [
+            { a: [0, 6], b: [0, 10] },
+            { a: [0, 10], b: [2, 10] }
+          ],
+          marks: [
+            { at: [0, 10], u: [0, -1], v: [1, 0] },
+            { at: [0, 0], u: [1, 0], v: [0, 1] },
+            { at: [6, 0], u: [-1, 0], v: [0, 1] },
+            { at: [6, 6], u: [-1, 0], v: [0, -1] },
+            { at: [0, 6], u: [0, -1], v: [1, 0] },
+            { at: [11, 2], u: [-1, 0], v: [0, 1] },
+            { at: [11, 6], u: [-1, 0], v: [0, -1] },
+            { at: [6, 2], u: [1, 0], v: [0, 1] },
+            { at: [6, 6], u: [1, 0], v: [0, -1] }
+          ]
+        }
+      ];
+
+      const INDIV = [
+        {
+          name: "第一題", unit: "厘米",
+          outline: [[0, 0], [36, 0], [29, 14], [37, 14], [36, 24], [24, 24], [12, 24]],
+          cuts: [[[24, 24], [29, 14]]],
+          pieces: [
+            { letter: "A", shape: "梯形", kind: "trap", div2: true, area: 576, nums: [12, 36, 24], skeleton: "(上底＋下底)×高÷2", at: [12, 9], poly: [[0, 0], [36, 0], [24, 24], [12, 24]] },
+            { letter: "B", shape: "梯形", kind: "trap", div2: true, area: 100, nums: [12, 8, 10], skeleton: "(上底＋下底)×高÷2", at: [30.2, 16.4], poly: [[24, 24], [36, 24], [37, 14], [29, 14]] }
+          ],
+          labels: [
+            { t: "36 cm", x: 18, y: -1.1 },
+            { t: "12 cm", x: 18, y: 25 },
+            { t: "12 cm", x: 30, y: 25 },
+            { t: "24 cm", x: 0, y: 12 },
+            { t: "8 cm", x: 33, y: 12.5 },
+            { t: "10 cm", x: 37, y: 19 }
+          ],
+          guides: [
+            { a: [0, 0], b: [0, 24] },
+            { a: [0, 24], b: [12, 24] },
+            { a: [37, 14], b: [37, 24] },
+            { a: [37, 24], b: [36, 24] }
+          ],
+          marks: [
+            { at: [0, 24], u: [0, -1], v: [1, 0] },
+            { at: [37, 24], u: [0, -1], v: [-1, 0] }
+          ]
+        },
+        {
+          name: "第二題", unit: "米",
+          outline: [[0, 12], [5, 12], [16, 0], [16, 12], [20, 20], [4, 20]],
+          cuts: [[[5, 12], [16, 12]]],
+          pieces: [
+            { letter: "A", shape: "平行四邊形", kind: "para", div2: false, area: 128, nums: [16, 8], skeleton: "底×高", at: [14.2, 16.6], poly: [[0, 12], [16, 12], [20, 20], [4, 20]] },
+            { letter: "B", shape: "三角形", kind: "tri", div2: true, area: 66, nums: [11, 12], skeleton: "底×高÷2", at: [12.4, 7.2], poly: [[5, 12], [16, 12], [16, 0]] }
+          ],
+          labels: [
+            { t: "16 m", x: 12, y: 20.6 },
+            { t: "8 m", x: 0, y: 16 },
+            { t: "11 m", x: 10.2, y: 10.5 },
+            { t: "12 m", x: 16.7, y: 6 }
+          ],
+          guides: [
+            { a: [0, 12], b: [0, 20] },
+            { a: [0, 20], b: [4, 20] }
+          ],
+          marks: [
+            { at: [0, 20], u: [0, -1], v: [1, 0] },
+            { at: [16, 12], u: [-1, 0], v: [0, -1] }
+          ]
+        },
+        {
+          name: "第三題", unit: "厘米",
+          outline: [[0, 0], [8, 0], [8, 3], [4, 8], [0, 3]],
+          cuts: [[[0, 3], [8, 3]]],
+          pieces: [
+            { letter: "A", shape: "長方形", kind: "rect", div2: false, area: 24, nums: [8, 3], skeleton: "長×闊", at: [4, 1.45], poly: [[0, 0], [8, 0], [8, 3], [0, 3]] },
+            { letter: "B", shape: "三角形", kind: "tri", div2: true, area: 20, nums: [8, 5], skeleton: "底×高÷2", at: [5.7, 4.15], poly: [[0, 3], [8, 3], [4, 8]] }
+          ],
+          labels: [
+            { t: "8 cm", x: 4, y: -0.6 },
+            { t: "3 cm", x: 8.45, y: 1.5 },
+            { t: "5 cm", x: 0, y: 5.5 }
+          ],
+          guides: [
+            { a: [0, 3], b: [0, 8] },
+            { a: [0, 8], b: [4, 8] }
+          ],
+          marks: [
+            { at: [0, 8], u: [0, -1], v: [1, 0] },
+            { at: [0, 0], u: [1, 0], v: [0, 1] },
+            { at: [8, 0], u: [-1, 0], v: [0, 1] },
+            { at: [0, 3], u: [0, -1], v: [1, 0] },
+            { at: [8, 3], u: [-1, 0], v: [0, -1] }
+          ]
+        },
+        {
+          name: "第四題", unit: "厘米",
+          outline: [[0, 0], [9, 0], [9, 4], [11, 9], [2, 9], [0, 4]],
+          cuts: [[[0, 4], [9, 4]]],
+          pieces: [
+            { letter: "A", shape: "平行四邊形", kind: "para", div2: false, area: 45, nums: [9, 7, 2], skeleton: "底×高，高＝7−2", at: [6.5, 6.7], poly: [[0, 4], [9, 4], [11, 9], [2, 9]] },
+            { letter: "B", shape: "長方形", kind: "rect", div2: false, area: 36, nums: [9, 4], skeleton: "長×闊", at: [4.5, 1.9], poly: [[0, 0], [9, 0], [9, 4], [0, 4]] }
+          ],
+          labels: [
+            { t: "9 cm", x: 4.5, y: -0.65 },
+            { t: "4 cm", x: 9.5, y: 2 },
+            { t: "7 cm", x: -0.45, y: 6.5 },
+            { t: "2 cm", x: 1, y: 9.45 },
+            { t: "高", x: 11, y: 6.5 }
+          ],
+          guides: [
+            { a: [0, 9], b: [2, 9] },
+            { a: [11, 9], b: [11, 4] },
+            { a: [11, 4], b: [9, 4] }
+          ],
+          marks: [
+            { at: [11, 4], u: [0, 1], v: [-1, 0] },
+            { at: [0, 0], u: [1, 0], v: [0, 1] },
+            { at: [9, 0], u: [-1, 0], v: [0, 1] },
+            { at: [0, 4], u: [0, -1], v: [1, 0] },
+            { at: [9, 4], u: [-1, 0], v: [0, -1] }
+          ]
+        },
+        {
+          name: "第五題", unit: "厘米",
+          outline: [[0, 0], [10, 0], [10, 3], [8, 7], [2, 7], [0, 3]],
+          cuts: [[[0, 3], [10, 3]]],
+          pieces: [
+            { letter: "A", shape: "梯形", kind: "trap", div2: true, area: 32, nums: [6, 10, 4], skeleton: "(上底＋下底)×高÷2", at: [7.2, 5.15], poly: [[0, 3], [10, 3], [8, 7], [2, 7]] },
+            { letter: "B", shape: "長方形", kind: "rect", div2: false, area: 30, nums: [10, 3], skeleton: "長×闊", at: [5, 1.45], poly: [[0, 0], [10, 0], [10, 3], [0, 3]] }
+          ],
+          labels: [
+            { t: "10 cm", x: 5, y: -0.6 },
+            { t: "3 cm", x: 10.45, y: 1.5 },
+            { t: "6 cm", x: 5, y: 7.4 },
+            { t: "4 cm", x: 0, y: 5 }
+          ],
+          guides: [
+            { a: [0, 3], b: [0, 7] },
+            { a: [0, 7], b: [2, 7] }
+          ],
+          marks: [
+            { at: [0, 7], u: [0, -1], v: [1, 0] },
+            { at: [0, 0], u: [1, 0], v: [0, 1] },
+            { at: [10, 0], u: [-1, 0], v: [0, 1] },
+            { at: [0, 3], u: [0, -1], v: [1, 0] },
+            { at: [10, 3], u: [-1, 0], v: [0, -1] }
+          ]
+        }
+      ];
+
+      function cen(poly) {
+        let twice = 0, cx = 0, cy = 0;
+        for (let i = 0; i < poly.length; i++) {
+          const p = poly[i], q = poly[(i + 1) % poly.length];
+          const cross = p[0] * q[1] - q[0] * p[1];
+          twice += cross;
+          cx += (p[0] + q[0]) * cross;
+          cy += (p[1] + q[1]) * cross;
+        }
+        if (Math.abs(twice) < 1e-8) {
+          let x = 0, y = 0;
+          poly.forEach((p) => { x += p[0]; y += p[1]; });
+          return [Math.round(x / poly.length * 100) / 100, Math.round(y / poly.length * 100) / 100];
+        }
+        const k = 1 / (3 * twice);
+        return [Math.round(cx * k * 100) / 100, Math.round(cy * k * 100) / 100];
+      }
+      function placeNames(list) {
+        list.forEach((q) => q.pieces.forEach((p) => { p.at = cen(p.poly); }));
+      }
+      placeNames(GROUP);
+      placeNames(INDIV);
+      function pieceOf(letter, shape, kind, div2, area, nums, skeleton, poly) {
+        return { letter, shape, kind, div2, area, nums, skeleton, at: cen(poly), poly };
+      }
+      function qRectTri(w, h, ht) {
+        const apex = [w / 2, h + ht];
+        const rect = [[0, 0], [w, 0], [w, h], [0, h]];
+        const tri = [[0, h], [w, h], apex];
+        const areaR = w * h, areaT = w * ht / 2;
+        return {
+          name: "功課", unit: "厘米",
+          outline: [[0, 0], [w, 0], [w, h], apex, [0, h]],
+          cuts: [[[0, h], [w, h]]],
+          pieces: [
+            pieceOf("A", "長方形", "rect", false, areaR, [w, h], "長×闊", rect),
+            pieceOf("B", "三角形", "tri", true, areaT, [w, ht], "底×高÷2", tri)
+          ],
+          labels: [
+            { t: w + " cm", x: w / 2, y: -0.7 },
+            { t: h + " cm", x: w + 0.75, y: h / 2 },
+            { t: ht + " cm", x: 0, y: h + ht / 2 }
+          ],
+          guides: [{ a: [0, h], b: [0, h + ht] }, { a: [0, h + ht], b: [w / 2, h + ht] }],
+          marks: [
+            { at: [0, h + ht], u: [0, -1], v: [1, 0] },
+            { at: [0, 0], u: [1, 0], v: [0, 1] },
+            { at: [w, 0], u: [-1, 0], v: [0, 1] },
+            { at: [0, h], u: [0, -1], v: [1, 0] },
+            { at: [w, h], u: [-1, 0], v: [0, -1] }
+          ],
+          sample: w + "×" + h + "＋" + w + "×" + ht + "÷2＝" + (areaR + areaT)
+        };
+      }
+      function qParaTri(b, hp, s, leg, vert) {
+        const yb = vert, yt = vert + hp;
+        const para = [[0, yb], [b, yb], [b + s, yt], [s, yt]];
+        const tri = [[b - leg, yb], [b, yb], [b, 0]];
+        const areaP = b * hp, areaT = leg * vert / 2;
+        return {
+          name: "功課", unit: "厘米",
+          outline: [[0, yb], [b - leg, yb], [b, 0], [b, yb], [b + s, yt], [s, yt]],
+          cuts: [[[b - leg, yb], [b, yb]]],
+          pieces: [
+            pieceOf("A", "平行四邊形", "para", false, areaP, [b, hp], "底×高", para),
+            pieceOf("B", "三角形", "tri", true, areaT, [leg, vert], "底×高÷2", tri)
+          ],
+          labels: [
+            { t: b + " cm", x: s + b / 2, y: yt + 0.7 },
+            { t: hp + " cm", x: 0, y: yb + hp / 2 },
+            { t: leg + " cm", x: b - leg / 2, y: yb - 0.75 },
+            { t: vert + " cm", x: b + 0.8, y: vert / 2 }
+          ],
+          guides: [{ a: [0, yb], b: [0, yt] }, { a: [0, yt], b: [s, yt] }],
+          marks: [
+            { at: [0, yt], u: [0, -1], v: [1, 0] },
+            { at: [b, yb], u: [-1, 0], v: [0, -1] }
+          ],
+          sample: b + "×" + hp + "＋" + leg + "×" + vert + "÷2＝" + (areaP + areaT)
+        };
+      }
+      function qTrapRect(top, bot, ht, hr) {
+        const oh = (bot - top) / 2, y1 = hr, y2 = hr + ht;
+        const trap = [[0, y1], [bot, y1], [bot - oh, y2], [oh, y2]];
+        const rect = [[0, 0], [bot, 0], [bot, y1], [0, y1]];
+        const areaT = (top + bot) * ht / 2, areaR = bot * hr;
+        return {
+          name: "功課", unit: "厘米",
+          outline: [[0, 0], [bot, 0], [bot, y1], [bot - oh, y2], [oh, y2], [0, y1]],
+          cuts: [[[0, y1], [bot, y1]]],
+          pieces: [
+            pieceOf("A", "梯形", "trap", true, areaT, [top, bot, ht], "(上底＋下底)×高÷2", trap),
+            pieceOf("B", "長方形", "rect", false, areaR, [bot, hr], "長×闊", rect)
+          ],
+          labels: [
+            { t: bot + " cm", x: bot / 2, y: -0.7 },
+            { t: hr + " cm", x: bot + 0.75, y: hr / 2 },
+            { t: top + " cm", x: bot / 2, y: y2 + 0.65 },
+            { t: ht + " cm", x: 0, y: y1 + ht / 2 }
+          ],
+          guides: [{ a: [0, y1], b: [0, y2] }, { a: [0, y2], b: [oh, y2] }],
+          marks: [
+            { at: [0, y2], u: [0, -1], v: [1, 0] },
+            { at: [0, 0], u: [1, 0], v: [0, 1] },
+            { at: [bot, 0], u: [-1, 0], v: [0, 1] },
+            { at: [0, y1], u: [0, -1], v: [1, 0] },
+            { at: [bot, y1], u: [-1, 0], v: [0, -1] }
+          ],
+          sample: "(" + top + "＋" + bot + ")×" + ht + "÷2＋" + bot + "×" + hr + "＝" + (areaT + areaR)
+        };
+      }
+      function qParaRect(b, hp, s, hr) {
+        const y1 = hr, y2 = hr + hp;
+        const para = [[0, y1], [b, y1], [b + s, y2], [s, y2]];
+        const rect = [[0, 0], [b, 0], [b, y1], [0, y1]];
+        const areaP = b * hp, areaR = b * hr;
+        return {
+          name: "功課", unit: "厘米",
+          outline: [[0, 0], [b, 0], [b, y1], [b + s, y2], [s, y2], [0, y1]],
+          cuts: [[[0, y1], [b, y1]]],
+          pieces: [
+            pieceOf("A", "平行四邊形", "para", false, areaP, [b, hp], "底×高", para),
+            pieceOf("B", "長方形", "rect", false, areaR, [b, hr], "長×闊", rect)
+          ],
+          labels: [
+            { t: b + " cm", x: b / 2, y: -0.7 },
+            { t: hr + " cm", x: b + 0.75, y: hr / 2 },
+            { t: b + " cm", x: s + b / 2, y: y2 + 0.65 },
+            { t: hp + " cm", x: 0, y: y1 + hp / 2 }
+          ],
+          guides: [{ a: [0, y1], b: [0, y2] }, { a: [0, y2], b: [s, y2] }],
+          marks: [
+            { at: [0, y2], u: [0, -1], v: [1, 0] },
+            { at: [0, 0], u: [1, 0], v: [0, 1] },
+            { at: [b, 0], u: [-1, 0], v: [0, 1] },
+            { at: [0, y1], u: [0, -1], v: [1, 0] },
+            { at: [b, y1], u: [-1, 0], v: [0, -1] }
+          ],
+          sample: b + "×" + hp + "＋" + b + "×" + hr + "＝" + (areaP + areaR)
+        };
+      }
+      function qTrapPara(top, b, ht, hp, s) {
+        const oh = (b - top) / 2, y1 = hp, y2 = hp + ht;
+        const para = [[0, 0], [b, 0], [b + s, y1], [s, y1]];
+        const trap = [[s, y1], [b + s, y1], [s + b - oh, y2], [s + oh, y2]];
+        const areaP = b * hp, areaT = (top + b) * ht / 2;
+        return {
+          name: "功課", unit: "厘米",
+          outline: [[0, 0], [b, 0], [b + s, y1], [s + b - oh, y2], [s + oh, y2], [s, y1]],
+          cuts: [[[s, y1], [b + s, y1]]],
+          pieces: [
+            pieceOf("A", "平行四邊形", "para", false, areaP, [b, hp], "底×高", para),
+            pieceOf("B", "梯形", "trap", true, areaT, [top, b, ht], "(上底＋下底)×高÷2", trap)
+          ],
+          labels: [
+            { t: b + " cm", x: b / 2, y: -0.7 },
+            { t: hp + " cm", x: 0, y: hp / 2 },
+            { t: top + " cm", x: s + b / 2, y: y2 + 0.65 },
+            { t: b + " cm", x: s + b / 2, y: y1 + 0.7 },
+            { t: ht + " cm", x: s, y: y1 + ht / 2 }
+          ],
+          guides: [
+            { a: [0, 0], b: [0, y1] }, { a: [0, y1], b: [s, y1] },
+            { a: [s, y1], b: [s, y2] }, { a: [s, y2], b: [s + oh, y2] }
+          ],
+          marks: [
+            { at: [0, y1], u: [0, -1], v: [1, 0] },
+            { at: [s, y2], u: [0, -1], v: [1, 0] }
+          ],
+          sample: b + "×" + hp + "＋(" + top + "＋" + b + ")×" + ht + "÷2＝" + (areaP + areaT)
+        };
+      }
+      function qStack(b, h1, h2, h3, s) {
+        const y1 = h1, y2 = h1 + h2, y3 = y2 + h3, apex = [s + b / 2, y3];
+        const rect = [[0, 0], [b, 0], [b, y1], [0, y1]];
+        const para = [[0, y1], [b, y1], [b + s, y2], [s, y2]];
+        const tri = [[s, y2], [b + s, y2], apex];
+        const areaR = b * h1, areaP = b * h2, areaT = b * h3 / 2;
+        return {
+          name: "功課", unit: "厘米",
+          outline: [[0, 0], [b, 0], [b, y1], [b + s, y2], apex, [s, y2], [0, y1]],
+          cuts: [[[0, y1], [b, y1]], [[s, y2], [b + s, y2]]],
+          pieces: [
+            pieceOf("A", "長方形", "rect", false, areaR, [b, h1], "長×闊", rect),
+            pieceOf("B", "平行四邊形", "para", false, areaP, [b, h2], "底×高", para),
+            pieceOf("C", "三角形", "tri", true, areaT, [b, h3], "底×高÷2", tri)
+          ],
+          labels: [
+            { t: b + " cm", x: b / 2, y: -0.7 },
+            { t: h1 + " cm", x: b + 0.75, y: h1 / 2 },
+            { t: h2 + " cm", x: 0, y: y1 + h2 / 2 },
+            { t: b + " cm", x: s + b / 2, y: y2 - 0.7 },
+            { t: h3 + " cm", x: s, y: y2 + h3 / 2 }
+          ],
+          guides: [
+            { a: [0, y1], b: [0, y2] }, { a: [0, y2], b: [s, y2] },
+            { a: [s, y2], b: [s, y3] }, { a: [s, y3], b: apex }
+          ],
+          marks: [
+            { at: [0, y2], u: [0, -1], v: [1, 0] },
+            { at: [s, y3], u: [0, -1], v: [1, 0] },
+            { at: [0, 0], u: [1, 0], v: [0, 1] },
+            { at: [b, 0], u: [-1, 0], v: [0, 1] },
+            { at: [0, y1], u: [0, -1], v: [1, 0] },
+            { at: [b, y1], u: [-1, 0], v: [0, -1] }
+          ],
+          sample: b + "×" + h1 + "＋" + b + "×" + h2 + "＋" + b + "×" + h3 + "÷2＝" + (areaR + areaP + areaT)
+        };
+      }
+      function qTrapHouse(top, b, ht, hr, triH) {
+        const oh = (b - top) / 2, y1 = hr, y2 = hr + ht, y3 = y2 + triH, apex = [b / 2, y3];
+        const rect = [[0, 0], [b, 0], [b, y1], [0, y1]];
+        const trap = [[0, y1], [b, y1], [b - oh, y2], [oh, y2]];
+        const tri = [[oh, y2], [b - oh, y2], apex];
+        const areaR = b * hr, areaTrap = (top + b) * ht / 2, areaT = top * triH / 2;
+        return {
+          name: "功課", unit: "厘米",
+          outline: [[0, 0], [b, 0], [b, y1], [b - oh, y2], apex, [oh, y2], [0, y1]],
+          cuts: [[[0, y1], [b, y1]], [[oh, y2], [b - oh, y2]]],
+          pieces: [
+            pieceOf("A", "長方形", "rect", false, areaR, [b, hr], "長×闊", rect),
+            pieceOf("B", "梯形", "trap", true, areaTrap, [top, b, ht], "(上底＋下底)×高÷2", trap),
+            pieceOf("C", "三角形", "tri", true, areaT, [top, triH], "底×高÷2", tri)
+          ],
+          labels: [
+            { t: b + " cm", x: b / 2, y: -0.7 },
+            { t: hr + " cm", x: b + 0.75, y: hr / 2 },
+            { t: ht + " cm", x: 0, y: y1 + ht / 2 },
+            { t: top + " cm", x: b / 2, y: y2 - 0.7 },
+            { t: triH + " cm", x: oh, y: y2 + triH / 2 }
+          ],
+          guides: [
+            { a: [0, y1], b: [0, y2] }, { a: [0, y2], b: [oh, y2] },
+            { a: [oh, y2], b: [oh, y3] }, { a: [oh, y3], b: apex }
+          ],
+          marks: [
+            { at: [0, y2], u: [0, -1], v: [1, 0] },
+            { at: [oh, y3], u: [0, -1], v: [1, 0] },
+            { at: [0, 0], u: [1, 0], v: [0, 1] },
+            { at: [b, 0], u: [-1, 0], v: [0, 1] },
+            { at: [0, y1], u: [0, -1], v: [1, 0] },
+            { at: [b, y1], u: [-1, 0], v: [0, -1] }
+          ],
+          sample: b + "×" + hr + "＋(" + top + "＋" + b + ")×" + ht + "÷2＋" + top + "×" + triH + "÷2＝" + (areaR + areaTrap + areaT)
+        };
+      }
+      function qParaTrapRect(b, hr, hp, top, ht, s) {
+        const oh = (b - top) / 2, y1 = hr, y2 = hr + hp, y3 = y2 + ht;
+        const rect = [[0, 0], [b, 0], [b, y1], [0, y1]];
+        const para = [[0, y1], [b, y1], [b + s, y2], [s, y2]];
+        const trap = [[s, y2], [b + s, y2], [s + b - oh, y3], [s + oh, y3]];
+        const areaR = b * hr, areaP = b * hp, areaT = (top + b) * ht / 2;
+        return {
+          name: "功課", unit: "厘米",
+          outline: [[0, 0], [b, 0], [b, y1], [b + s, y2], [s + b - oh, y3], [s + oh, y3], [s, y2], [0, y1]],
+          cuts: [[[0, y1], [b, y1]], [[s, y2], [b + s, y2]]],
+          pieces: [
+            pieceOf("A", "長方形", "rect", false, areaR, [b, hr], "長×闊", rect),
+            pieceOf("B", "平行四邊形", "para", false, areaP, [b, hp], "底×高", para),
+            pieceOf("C", "梯形", "trap", true, areaT, [top, b, ht], "(上底＋下底)×高÷2", trap)
+          ],
+          labels: [
+            { t: b + " cm", x: b / 2, y: -0.7 },
+            { t: hr + " cm", x: b + 0.75, y: hr / 2 },
+            { t: hp + " cm", x: 0, y: y1 + hp / 2 },
+            { t: b + " cm", x: s + b / 2, y: y2 - 0.7 },
+            { t: top + " cm", x: s + b / 2, y: y3 + 0.65 },
+            { t: ht + " cm", x: s, y: y2 + ht / 2 }
+          ],
+          guides: [
+            { a: [0, y1], b: [0, y2] }, { a: [0, y2], b: [s, y2] },
+            { a: [s, y2], b: [s, y3] }, { a: [s, y3], b: [s + oh, y3] }
+          ],
+          marks: [
+            { at: [0, y2], u: [0, -1], v: [1, 0] },
+            { at: [s, y3], u: [0, -1], v: [1, 0] },
+            { at: [0, 0], u: [1, 0], v: [0, 1] },
+            { at: [b, 0], u: [-1, 0], v: [0, 1] },
+            { at: [0, y1], u: [0, -1], v: [1, 0] },
+            { at: [b, y1], u: [-1, 0], v: [0, -1] }
+          ],
+          sample: b + "×" + hr + "＋" + b + "×" + hp + "＋(" + top + "＋" + b + ")×" + ht + "÷2＝" + (areaR + areaP + areaT)
+        };
+      }
+      function stampBank(id, fn, presets) {
+        return presets.map((p) => {
+          const q = fn.apply(null, p);
+          q.family = id;
+          q.sig = id + ":" + p.join(",");
+          q.name = "功課";
+          return q;
+        });
+      }
+      const HW_TWO = [
+        stampBank("rectTri", qRectTri, [[8, 3, 5], [10, 4, 6], [12, 5, 6], [6, 4, 8], [14, 4, 6], [16, 5, 4], [10, 6, 8], [12, 3, 8], [8, 5, 6], [18, 4, 6], [14, 6, 4], [6, 5, 8]]),
+        stampBank("paraTri", qParaTri, [[12, 6, 3, 8, 6], [14, 5, 3, 8, 6], [15, 6, 4, 10, 6], [16, 7, 4, 10, 8], [18, 5, 4, 12, 6], [12, 8, 3, 8, 10], [20, 6, 5, 14, 8], [10, 6, 3, 6, 8], [14, 8, 3, 10, 6], [18, 6, 4, 12, 8]]),
+        stampBank("trapRect", qTrapRect, [[6, 10, 4, 3], [8, 12, 4, 5], [4, 10, 6, 4], [5, 11, 4, 3], [8, 14, 6, 4], [6, 12, 5, 4], [10, 16, 4, 6], [7, 13, 6, 4], [4, 8, 5, 3], [9, 15, 4, 5], [6, 14, 4, 5], [8, 16, 5, 3]]),
+        stampBank("paraRect", qParaRect, [[9, 5, 3, 4], [8, 6, 2, 3], [12, 4, 3, 5], [10, 6, 3, 4], [14, 5, 4, 3], [7, 6, 2, 4], [11, 5, 3, 6], [15, 4, 4, 6], [12, 7, 3, 4], [8, 4, 3, 6]]),
+        stampBank("trapPara", qTrapPara, [[6, 12, 4, 5, 3], [8, 14, 4, 6, 3], [4, 10, 6, 5, 2], [6, 14, 5, 4, 3], [8, 12, 6, 4, 3], [10, 16, 4, 5, 4], [5, 11, 6, 4, 3], [7, 13, 4, 6, 3]]),
+        [Object.assign({}, INDIV[3], { name: "功課", family: "schematic", sig: "fixed:i3", sample: "9×(7−2)＋9×4＝81" })]
+      ];
+      const HW_THREE = [
+        stampBank("stack", qStack, [[8, 3, 4, 6, 2], [12, 4, 5, 8, 3], [10, 5, 4, 6, 4], [14, 4, 6, 8, 3], [12, 5, 6, 4, 4], [16, 4, 5, 6, 4], [8, 4, 6, 8, 3], [14, 5, 4, 8, 4]]),
+        stampBank("trapHouse", qTrapHouse, [[6, 12, 4, 3, 6], [8, 14, 4, 5, 6], [4, 10, 6, 4, 8], [6, 14, 5, 4, 6], [8, 12, 6, 3, 4], [10, 16, 4, 5, 6], [5, 11, 4, 3, 6], [7, 13, 6, 4, 4]]),
+        stampBank("paraTrapRect", qParaTrapRect, [[10, 4, 5, 6, 4, 3], [12, 3, 6, 8, 4, 3], [8, 5, 4, 4, 6, 2], [14, 4, 5, 8, 4, 3], [10, 6, 4, 6, 5, 4], [12, 4, 7, 6, 4, 3], [16, 3, 5, 10, 4, 4], [9, 4, 6, 5, 4, 3]])
+      ];
+      function namedQ(q, name) { return Object.assign({}, q, { name: name }); }
+      const CLASS = [
+        namedQ(INDIV[1], "第一題"),
+        namedQ(INDIV[0], "第二題"),
+        namedQ(qStack(10, 4, 5, 6, 3), "第三題")
+      ];
+      function shuffleBag(arr, rnd) {
+        const a = arr.slice();
+        for (let i = a.length - 1; i > 0; i--) {
+          const j = Math.floor(rnd() * (i + 1));
+          const t = a[i]; a[i] = a[j]; a[j] = t;
+        }
+        return a;
+      }
+      function makeHomework(seen, last, rnd) {
+        const rand = rnd || Math.random;
+        const seenList = seen || [];
+        const fresh = (pools, need) => {
+          const ok = pools.filter((pool) => pool.some((q) => seenList.indexOf(q.sig) < 0));
+          return ok.length >= need ? ok : pools;
+        };
+        for (let attempt = 0; attempt < 80; attempt++) {
+          const two = shuffleBag(fresh(HW_TWO, 3), rand).slice(0, 3);
+          const three = shuffleBag(fresh(HW_THREE, 2), rand).slice(0, 2);
+          const chosen = two.concat(three).map((pool) => {
+            const bag = pool.filter((q) => seenList.indexOf(q.sig) < 0);
+            const src = bag.length ? bag : pool;
+            return src[Math.floor(rand() * src.length)];
+          });
+          const sigs = chosen.map((q) => q.sig);
+          if (new Set(sigs).size < 5) continue;
+          const kinds = new Set();
+          chosen.forEach((q) => q.pieces.forEach((p) => kinds.add(p.kind)));
+          if (!kinds.has("tri") || !kinds.has("para") || !kinds.has("trap")) continue;
+          const nCuts = chosen.map((q) => q.cuts.length);
+          if (nCuts.slice(0, 3).some((n) => n !== 1) || nCuts.slice(3).some((n) => n !== 2)) continue;
+          if (sigs.join("|") === last) continue;
+          return { questions: chosen, sigs: sigs };
+        }
+        const chosen = HW_TWO.slice(0, 3).map((p) => p[0]).concat(HW_THREE.slice(0, 2).map((p) => p[0]));
+        return { questions: chosen, sigs: chosen.map((q) => q.sig) };
+      }
+
+      const state = {
+        classId: "", studentId: "", mode: "", level: "basic", pick: "root",
+        qi: 0, done: 0, ended: false, busy: false, sheetSent: false,
+        paper: null,
+        startedAt: 0, penalty: 0, elapsed: 0,
+        miss: blankMiss(),
+        q: null, phase: "draw", buf: "", finalExpr: "", finalAns: "", finalPicks: [], finalOps: [], finalFocus: "expr", formulaOk: false, locked: {}, gotCuts: [], anchor: null,
+        drag: null, badCut: null,
+        flash: "", cssW: 0, cssH: 0, view: null
+      };
+      let audioCtx = null, countId = null, sceneCtx = null;
+      const $ = (id) => document.getElementById(id);
+      const screens = {
+        login: $("screen-login"), mode: $("screen-mode"), game: $("screen-game"),
+        dash: $("screen-dash"), rank: $("screen-rank")
+      };
+      const scene = $("scene");
+
+      function blankMiss() {
+        return { data: 0, A: 0, B: 0, C: 0, minus: 0, half: 0, pick: 0, calc: 0 };
+      }
+      function levelOf() { return state.mode === "group" ? "basic" : state.level; }
+      function isExample() { return state.mode === "group" && !!(state.q && state.q.name === "例題"); }
+      function timed() { return !!state.mode; }
+      function levelName(level) { return level === "basic" ? "基礎" : level === "adv" ? "進階" : "高階"; }
+      function showScreen(name) {
+        Object.keys(screens).forEach((key) => screens[key].classList.toggle("active", key === name));
+        if (name !== "game") stopClock();
+      }
+      function bounce(el) {
+        if (!el) return;
+        el.classList.remove("bounce");
+        void el.offsetWidth;
+        el.classList.add("bounce");
+      }
+      $("titleWave").innerHTML = [...TITLE].map((ch, i) => {
+        const span = `<span style="display:inline-block;animation:floaty 2.4s ${i * 0.08}s ease-in-out infinite">${ch}</span>`;
+        return ch === "：" ? span + "<br>" : span;
+      }).join("");
+
+      function normalize(raw) {
+        return String(raw || "").replace(/\s+/g, "")
+          .replace(/＋/g, "+").replace(/－|−|–/g, "-").replace(/×/g, "*").replace(/÷/g, "/")
+          .replace(/＝/g, "=").replace(/（/g, "(").replace(/）/g, ")");
+      }
+      function nearly(a, b) { return Math.abs(a - b) < 1e-6; }
+      function numbersIn(s) {
+        const out = [];
+        const re = /\d+/g;
+        let m;
+        while ((m = re.exec(s))) out.push(Number(m[0]));
+        return out;
+      }
+      function evalExpr(s) {
+        let i = 0;
+        function peek() { return s[i]; }
+        function factor() {
+          if (peek() === "(") {
+            i += 1;
+            const v = expr();
+            if (v == null || peek() !== ")") return null;
+            i += 1;
+            return v;
+          }
+          if (peek() === "+" || peek() === "-") {
+            const op = s[i]; i += 1;
+            const v = factor();
+            return v == null ? null : (op === "-" ? -v : v);
+          }
+          if (!/\d/.test(peek() || "")) return null;
+          const start = i;
+          while (/\d/.test(s[i] || "")) i += 1;
+          return Number(s.slice(start, i));
+        }
+        function term() {
+          let v = factor();
+          if (v == null) return null;
+          while (peek() === "*" || peek() === "/") {
+            const op = s[i]; i += 1;
+            const r = factor();
+            if (r == null || (op === "/" && r === 0)) return null;
+            v = op === "*" ? v * r : v / r;
+          }
+          return v;
+        }
+        function expr() {
+          let v = term();
+          if (v == null) return null;
+          while (peek() === "+" || peek() === "-") {
+            const op = s[i]; i += 1;
+            const r = term();
+            if (r == null) return null;
+            v = op === "+" ? v + r : v - r;
+          }
+          return v;
+        }
+        if (!s) return null;
+        const v = expr();
+        if (v == null || i !== s.length || !isFinite(v)) return null;
+        return v;
+      }
+      function topSplit(s, op) {
+        const parts = [];
+        let depth = 0, start = 0;
+        for (let i = 0; i < s.length; i++) {
+          const c = s[i];
+          if (c === "(") depth += 1;
+          else if (c === ")") depth -= 1;
+          else if (c === op && depth === 0) {
+            parts.push(s.slice(start, i));
+            start = i + 1;
+          }
+        }
+        parts.push(s.slice(start));
+        return parts;
+      }
+      function hasTopLevelMinus(s) {
+        let depth = 0;
+        for (let i = 0; i < s.length; i++) {
+          const c = s[i];
+          if (c === "(") depth += 1;
+          else if (c === ")") depth -= 1;
+          else if (c === "-" && depth === 0) return true;
+        }
+        return false;
+      }
+      function topSplitEither(s) {
+        const parts = [];
+        let depth = 0, start = 0;
+        for (let i = 0; i < s.length; i++) {
+          const c = s[i];
+          if (c === "(") depth += 1;
+          else if (c === ")") depth -= 1;
+          else if ((c === "+" || c === "-") && depth === 0) {
+            if (i > start) parts.push(s.slice(start, i));
+            start = i + 1;
+          }
+        }
+        if (start < s.length) parts.push(s.slice(start));
+        return parts;
+      }
+      function checkPiece(raw, piece) {
+        let s = normalize(raw);
+        if (!s) return { ok: false, err: "piece" };
+        const eq = topSplit(s, "=");
+        if (eq.length > 1) {
+          if (eq.some((part) => !part)) return { ok: false, err: "piece" };
+          const rightOk = eq.slice(1).every((part) => {
+            const v = evalExpr(part);
+            return v != null && nearly(v, piece.area);
+          });
+          if (!rightOk) return { ok: false, err: "calc" };
+          s = eq[0];
+        }
+        if (!/[+\-*/]/.test(s)) return { ok: false, err: "piece" };
+        const allow = new Set(piece.nums.concat([2]));
+        if (numbersIn(s).some((n) => !allow.has(n))) return { ok: false, err: "data" };
+        if (piece.kind === "trap" && trapNeedsParen(s, [piece])) return { ok: false, err: "paren", kind: "trap" };
+        if (pieceTokenOk(s, piece)) return { ok: true };
+        const v = evalExpr(s);
+        if (v == null) return { ok: false, err: "piece" };
+        if (piece.div2 && !/\/2(?!\d)/.test(s)) {
+          if (nearly(v, piece.area * 2)) return { ok: false, err: "half", kind: piece.kind };
+          return { ok: false, err: "piece" };
+        }
+        if (!nearly(v, piece.area)) return { ok: false, err: "calc" };
+        return { ok: true };
+      }
+      function matchAll(parts, pieces) {
+        if (parts.length !== pieces.length) return false;
+        const used = new Set();
+        for (const part of parts) {
+          let found = -1;
+          for (let i = 0; i < pieces.length; i++) {
+            if (used.has(i)) continue;
+            if (checkPiece(part, pieces[i]).ok) { found = i; break; }
+          }
+          if (found < 0) return false;
+          used.add(found);
+        }
+        return used.size === pieces.length;
+      }
+      function stripWrap(s) {
+        let t = s;
+        while (t.length >= 2 && t[0] === "(" && t[t.length - 1] === ")") {
+          let depth = 0, wraps = true;
+          for (let i = 0; i < t.length; i++) {
+            if (t[i] === "(") depth += 1;
+            else if (t[i] === ")") depth -= 1;
+            if (depth === 0 && i < t.length - 1) { wraps = false; break; }
+            if (depth < 0) { wraps = false; break; }
+          }
+          if (!wraps) break;
+          t = t.slice(1, -1);
+        }
+        return t;
+      }
+      function signedTerms(s) {
+        const terms = [];
+        let depth = 0, start = 0, sign = "+";
+        if (s[0] === "+" || s[0] === "-") { sign = s[0]; start = 1; }
+        for (let i = start; i < s.length; i++) {
+          const c = s[i];
+          if (c === "(") depth += 1;
+          else if (c === ")") depth -= 1;
+          else if ((c === "+" || c === "-") && depth === 0) {
+            const body = s.slice(start, i);
+            if (body) terms.push({ sign, body });
+            sign = c;
+            start = i + 1;
+          }
+        }
+        if (s.slice(start)) terms.push({ sign, body: s.slice(start) });
+        return terms;
+      }
+      function joinTerms(terms) {
+        return terms.map((t, i) => (i === 0 ? (t.sign === "-" ? "-" : "") : t.sign) + t.body).join("");
+      }
+      function partitionMatch(left, pieces) {
+        const terms = signedTerms(stripWrap(left));
+        const n = pieces.length, m = terms.length;
+        if (!m || m < n || m > 8 || terms.some((t) => !t.body)) return false;
+        const total = Math.pow(n, m);
+        for (let mask = 0; mask < total; mask++) {
+          const groups = pieces.map(() => []);
+          let x = mask;
+          for (let t = 0; t < m; t++) {
+            groups[x % n].push(terms[t]);
+            x = Math.floor(x / n);
+          }
+          if (groups.some((g) => !g.length)) continue;
+          if (groups.every((g, i) => checkPiece(joinTerms(g), pieces[i]).ok)) return true;
+        }
+        return false;
+      }
+      function exprTokens(s) {
+        const tokens = [];
+        let i = 0, op = "", saw = false;
+        while (i < s.length) {
+          const c = s[i];
+          if (c === "(" || c === ")") { i += 1; continue; }
+          if (c === "+" || c === "-" || c === "*" || c === "/") {
+            if (saw) return null;
+            op = c;
+            saw = true;
+            i += 1;
+            continue;
+          }
+          if (c >= "0" && c <= "9") {
+            let j = i;
+            while (s[j] >= "0" && s[j] <= "9") j += 1;
+            const n = Number(s.slice(i, j));
+            if (!tokens.length && !saw) tokens.push({ op: "", n });
+            else if (!saw) return null;
+            else tokens.push({ op, n });
+            op = "";
+            saw = false;
+            i = j;
+            continue;
+          }
+          return null;
+        }
+        if (saw || !tokens.length) return null;
+        return tokens;
+      }
+      function sameTok(a, b) {
+        if (a.length !== b.length) return false;
+        for (let i = 0; i < a.length; i++) if (a[i].op !== b[i].op || a[i].n !== b[i].n) return false;
+        return true;
+      }
+      function pushPat(list, pat) {
+        const key = pat.map((t) => t.op + ":" + t.n).join(",");
+        if (!list._keys) list._keys = new Set();
+        if (list._keys.has(key)) return;
+        list._keys.add(key);
+        list.push(pat);
+      }
+      function T(op, n) { return { op, n }; }
+      function piecePatterns(piece) {
+        const nums = piece.nums, area = piece.area, list = [];
+        if (piece.kind === "tri") {
+          for (let i = 0; i < nums.length; i++) {
+            for (let j = i + 1; j < nums.length; j++) {
+              const a = nums[i], b = nums[j];
+              if (!nearly(a * b / 2, area)) continue;
+              [[a, b], [b, a]].forEach(([x, y]) => {
+                pushPat(list, [T("", x), T("*", y), T("/", 2)]);
+                pushPat(list, [T("", x), T("/", 2), T("*", y)]);
+              });
+            }
+          }
+          return list;
+        }
+        if (piece.kind === "trap") return list;
+        if (piece.kind === "para" && nums.length >= 3) {
+          for (let i = 0; i < nums.length; i++) {
+            for (let j = 0; j < nums.length; j++) {
+              if (j === i) continue;
+              for (let k = 0; k < nums.length; k++) {
+                if (k === i || k === j) continue;
+                const base = nums[i], tall = nums[j], over = nums[k];
+                if (!nearly(base * (tall - over), area)) continue;
+                pushPat(list, [T("", base), T("*", tall), T("-", over)]);
+                pushPat(list, [T("", tall), T("-", over), T("*", base)]);
+                pushPat(list, [T("", base), T("*", tall), T("-", base), T("*", over)]);
+                pushPat(list, [T("", base), T("*", tall), T("-", over), T("*", base)]);
+                pushPat(list, [T("", tall), T("*", base), T("-", over), T("*", base)]);
+                pushPat(list, [T("", tall), T("*", base), T("-", base), T("*", over)]);
+              }
+            }
+          }
+          if (list.length) return list;
+        }
+        if (nums.length === 1) {
+          pushPat(list, [T("", nums[0]), T("*", nums[0])]);
+          return list;
+        }
+        for (let i = 0; i < nums.length; i++) {
+          for (let j = 0; j < nums.length; j++) {
+            if (i === j || !nearly(nums[i] * nums[j], area)) continue;
+            pushPat(list, [T("", nums[i]), T("*", nums[j])]);
+          }
+        }
+        return list;
+      }
+      function trapBases(piece) {
+        if (!piece || piece.kind !== "trap") return null;
+        const nums = piece.nums;
+        for (let i = 0; i < nums.length; i++) {
+          const h = nums[i];
+          const rest = nums.filter((_, j) => j !== i);
+          if (rest.length === 2 && nearly((rest[0] + rest[1]) * h / 2, piece.area)) return rest;
+        }
+        return null;
+      }
+      function nakedBaseSum(s, a, b) {
+        const want = [String(a) + "+" + b, String(b) + "+" + a];
+        let depth = 0;
+        for (let i = 0; i < s.length; i++) {
+          const c = s[i];
+          if (c === "(") depth += 1;
+          else if (c === ")") depth -= 1;
+          else if (depth === 0) {
+            for (let t = 0; t < want.length; t++) {
+              const key = want[t];
+              if (!s.startsWith(key, i)) continue;
+              const before = i > 0 ? s[i - 1] : "";
+              const after = s[i + key.length] || "";
+              if (/\d/.test(before) || /\d/.test(after)) continue;
+              return true;
+            }
+          }
+        }
+        return false;
+      }
+      function trapNeedsParen(s, pieces) {
+        return pieces.some((p) => {
+          const bases = trapBases(p);
+          return !!(bases && nakedBaseSum(s, bases[0], bases[1]));
+        });
+      }
+      function pieceTokenOk(s, piece) {
+        const tokens = exprTokens(s);
+        if (!tokens) return false;
+        if (tokens[0].op !== "" && tokens[0].op !== "+") return false;
+        const body = tokens.map((t, i) => (i === 0 ? { op: "", n: t.n } : t));
+        return piecePatterns(piece).some((p) => sameTok(p, body));
+      }
+      function tokenJoin(left, pieces) {
+        const tokens = exprTokens(left);
+        if (!tokens) return null;
+        const n = pieces.length, m = tokens.length;
+        if (m < n || m > 24) return null;
+        const pats = pieces.map(piecePatterns);
+        let plus = false, minus = false;
+        function segOk(seg, pi, idx) {
+          if (!seg.length) return false;
+          const lead = seg[0].op;
+          if (idx === 0) {
+            if (lead !== "" && lead !== "+") return false;
+          } else if (lead !== "+" && lead !== "-") return false;
+          const body = seg.map((t, i) => (i === 0 ? { op: "", n: t.n } : t));
+          return pats[pi].some((p) => sameTok(p, body));
+        }
+        function consider(segs) {
+          const idx = pieces.map((_, i) => i);
+          function perm(p) {
+            if (p === n) {
+              let minusLead = false;
+              for (let i = 0; i < n; i++) {
+                if (!segOk(segs[i], idx[i], i)) return;
+                if (i > 0 && segs[i][0].op === "-") minusLead = true;
+              }
+              if (minusLead) minus = true;
+              else plus = true;
+              return;
+            }
+            for (let i = p; i < n; i++) {
+              const t = idx[p]; idx[p] = idx[i]; idx[i] = t;
+              perm(p + 1);
+              idx[i] = idx[p]; idx[p] = t;
+            }
+          }
+          perm(0);
+        }
+        function walk(start, k, cuts) {
+          if (k === n - 1) {
+            const segs = [];
+            let s0 = 0;
+            cuts.forEach((e) => { segs.push(tokens.slice(s0, e)); s0 = e; });
+            segs.push(tokens.slice(s0));
+            consider(segs);
+            return;
+          }
+          for (let end = start + 1; end <= m - (n - k - 1); end++) {
+            cuts.push(end);
+            walk(end, k + 1, cuts);
+            cuts.pop();
+          }
+        }
+        walk(0, 0, []);
+        if (plus) return "plus";
+        if (minus) return "minus";
+        return null;
+      }
+      function checkFinal(raw, pieces) {
+        const s = normalize(raw);
+        if (!s.includes("=")) return { ok: false, err: "eq" };
+        const eq = topSplit(s, "=");
+        if (eq.length < 2 || eq.some((part) => !part)) return { ok: false, err: "eq" };
+        const left = eq[0];
+        const total = pieces.reduce((n, p) => n + p.area, 0);
+        const rightOk = eq.slice(1).every((part) => {
+          const v = evalExpr(part);
+          return v != null && nearly(v, total);
+        });
+        if (partitionMatch(left, pieces)) {
+          if (!rightOk) return { ok: false, err: "calc" };
+          return { ok: true };
+        }
+        const joined = tokenJoin(left, pieces);
+        if (joined === "plus") {
+          if (!rightOk) return { ok: false, err: "calc" };
+          return { ok: true };
+        }
+        if (joined === "minus") return { ok: false, err: "minus" };
+        const plus = topSplit(left, "+");
+        const minusHit = hasTopLevelMinus(left) && matchAll(topSplitEither(left), pieces);
+        if (plus.length === pieces.length && plus.every((p) => p !== "")) {
+          const used = new Set();
+          let fail = null;
+          for (const part of plus) {
+            let hit = -1;
+            for (let i = 0; i < pieces.length; i++) {
+              if (used.has(i)) continue;
+              if (checkPiece(part, pieces[i]).ok) { hit = i; break; }
+            }
+            if (hit >= 0) { used.add(hit); continue; }
+            let chosen = null;
+            for (let i = 0; i < pieces.length; i++) {
+              if (used.has(i)) continue;
+              const r = checkPiece(part, pieces[i]);
+              const item = { err: r.err, letter: pieces[i].letter, kind: pieces[i].kind };
+              if (!chosen) chosen = item;
+              if (r.err === "half" || r.err === "data" || r.err === "calc") { chosen = item; break; }
+            }
+            fail = chosen || { err: "calc", letter: pieces[0].letter };
+            break;
+          }
+          if (!fail) {
+            if (!rightOk) return { ok: false, err: "calc" };
+            return { ok: true };
+          }
+          if (minusHit) return { ok: false, err: "minus" };
+          return { ok: false, err: fail.err === "piece" ? "piece" : fail.err, letter: fail.letter, kind: fail.kind };
+        }
+        if (minusHit) return { ok: false, err: "minus" };
+        if (trapNeedsParen(left, pieces)) return { ok: false, err: "paren", kind: "trap" };
+        return { ok: false, err: "calc", letter: pieces[0].letter };
+      }
+
+      function loadStore() {
+        try {
+          const raw = localStorage.getItem(STORE_KEY);
+          if (!raw) return { students: {}, logs: [] };
+          const data = JSON.parse(raw);
+          return { students: data.students || {}, logs: Array.isArray(data.logs) ? data.logs : [] };
+        } catch (e) { return { students: {}, logs: [] }; }
+      }
+      function saveStore(data) { localStorage.setItem(STORE_KEY, JSON.stringify(data)); }
+      function normalizeId(id) {
+        const raw = String(id || "").trim();
+        return /^\d+$/.test(raw) ? raw.padStart(2, "0") : raw;
+      }
+      function studentKey(c, s) { return `${c}__${normalizeId(s)}`; }
+      function nowText() {
+        const d = new Date();
+        const p = (n) => String(n).padStart(2, "0");
+        return `${d.getFullYear()}/${p(d.getMonth() + 1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+      }
+      function ensureStudent() {
+        const db = loadStore();
+        const key = studentKey(state.classId, state.studentId);
+        if (!db.students[key]) {
+          db.students[key] = { classId: state.classId, studentId: normalizeId(state.studentId) };
+          saveStore(db);
+        }
+        return key;
+      }
+      function missSum() { return MISS_ORDER.reduce((n, k) => n + (state.miss[k] || 0), 0); }
+      function trackHead() {
+        const name = state.q && state.q.name ? state.q.name : "";
+        if (state.mode === "group") return "小組｜" + name;
+        if (state.mode === "class") return "個人｜" + levelName(state.level) + "｜" + name;
+        return "功課";
+      }
+      function diagnose() {
+        const items = [];
+        MISS_ORDER.forEach((k) => { if (state.miss[k]) items.push(`${MISS_LABEL[k]}（${state.miss[k]}次）`); });
+        const body = items.length ? items.map((s) => "• " + s).join("\n") : "零失誤";
+        const sheet = trackHead() + "\n" + body;
+        const tip = items.length ? body + "\n💪 再接再厲吧" : "零失誤\n🌟 做得好啊";
+        return { short: body, sheet: sheet, tip: tip };
+      }
+      function sheetConfigured() {
+        return /^https:\/\/script\.google\.com\/macros\/s\/(?!YOUR_SCRIPT_ID\b)[^/]+\/exec\/?$/.test(GOOGLE_SHEET_URL);
+      }
+      function sendToGoogleSheet(d) {
+        if (state.sheetSent || !sheetConfigured()) return;
+        state.sheetSent = true;
+        const payload = {
+          game: GAME_ID, chapter: CHAPTER,
+          student: `${state.classId} (${normalizeId(state.studentId)})`,
+          score: state.done, avgTime: `${state.elapsed}秒`, diagnostic: d.sheet
+        };
+        try {
+          fetch(GOOGLE_SHEET_URL, {
+            method: "POST", mode: "no-cors",
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify(payload)
+          }).catch(function () {});
+        } catch (err) {}
+      }
+      let sheetLogsCache = null, dashSeq = 0, dashAllLogs = [], rankSeq = 0;
+      let dashClass = "ALL", dashSort = { col: "student", dir: "asc" }, dashFilters = {}, dashMenuCol = "", dashView = "all";
+      function dashCols() {
+        const student = { key: "student", label: "班別學號", numeric: false };
+        const track = { key: "track", label: "項目", numeric: false };
+        const qname = { key: "qname", label: "題目", numeric: false };
+        const level = { key: "level", label: "難度", numeric: false };
+        const score = { key: "score", label: "答對題數", numeric: true };
+        const avg = { key: "avg", label: "用時(秒)", numeric: true };
+        const hints = { key: "hints", label: "提示次數", numeric: true };
+        const diagnosis = { key: "diagnosis", label: "錯處", numeric: false };
+        const time = { key: "time", label: "時間", numeric: false };
+        if (dashView === "group") return [student, qname, avg, hints, diagnosis, time];
+        if (dashView === "class") return [student, level, qname, avg, hints, diagnosis, time];
+        if (dashView === "homework") return [student, score, avg, hints, diagnosis, time];
+        return [student, track, qname, level, score, avg, hints, diagnosis, time];
+      }
+      function hintTotal(text) {
+        let n = 0;
+        const re = /（(\d+)次）/g;
+        let m;
+        while ((m = re.exec(String(text || "")))) n += Number(m[1]) || 0;
+        return n;
+      }
+      function topMisses(logs, n) {
+        const counts = new Map();
+        (logs || []).forEach((e) => {
+          const re = /([^•\n]+?)（(\d+)次）/g;
+          let m;
+          while ((m = re.exec(String(e.body || "")))) {
+            let label = m[1].replace(/^[\s•]+/, "").trim();
+            if (!label || label === "零失誤") continue;
+            if (label === "分割後資料不足") label = "分割後圖形資料不足";
+            counts.set(label, (counts.get(label) || 0) + (Number(m[2]) || 0));
+          }
+        });
+        return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "zh")).slice(0, n || 3);
+      }
+      function topMissHtml(logs) {
+        const top = topMisses(logs, 3);
+        if (!top.length) return "零失誤";
+        return top.map(([label, n]) => `• ${escapeHtml(label)}（${n}次）`).join("<br>");
+      }
+      function parseTrack(diagnostic) {
+        const text = String(diagnostic || "");
+        const lines = text.split("\n");
+        const parts = (lines[0] || "").split("｜");
+        const kind = parts[0];
+        if (kind !== "小組" && kind !== "個人" && kind !== "功課") {
+          return { track: "", level: "", qname: "", body: text, hints: hintTotal(text) };
+        }
+        const body = lines.slice(1).join("\n");
+        return {
+          track: kind,
+          level: kind === "個人" ? (parts[1] || "") : "",
+          qname: kind === "小組" ? (parts[1] || "") : kind === "個人" ? (parts[2] || "") : "",
+          body: body,
+          hints: hintTotal(body)
+        };
+      }
+      function parseSheetStudent(s) {
+        const m = String(s || "").match(/^(.+?)\s*\(([^)]+)\)/);
+        if (m) return { classId: m[1].trim(), studentId: normalizeId(m[2].trim()) };
+        return { classId: "", studentId: String(s || "").trim() };
+      }
+      function parseAvgSec(s) { const m = String(s || "").match(/(\d+)/); return m ? Number(m[1]) : 0; }
+      function countErr(diagnostic, label) {
+        const m = String(diagnostic || "").match(new RegExp(label + "（(\\d+)次）"));
+        if (m) return Number(m[1]) || 0;
+        return new RegExp(label).test(diagnostic) ? 1 : 0;
+      }
+      function rowsToLogs(rows) {
+        return (rows || []).map((r) => {
+          const who = parseSheetStudent(r.student);
+          const diagnostic = String(r.diagnostic || "");
+          const parsed = parseTrack(diagnostic);
+          return {
+            classId: who.classId, studentId: who.studentId,
+            done: Number(r.score) || 0, avgSec: parseAvgSec(r.avgTime), diagnosis: diagnostic,
+            body: parsed.body, track: parsed.track, level: parsed.level, qname: parsed.qname, hints: parsed.hints,
+            halfErr: countErr(diagnostic, "漏除以2"),
+            dataErr: countErr(diagnostic, "分割後圖形資料不足") + countErr(diagnostic, "分割後資料不足"),
+            time: r.time || "", game: r.game || r.chapter || ""
+          };
+        }).filter((e) => e.studentId || e.classId);
+      }
+      function jsonpSheet(url) {
+        return new Promise((resolve, reject) => {
+          const cb = "p5ch8aDash" + Date.now();
+          const s = document.createElement("script");
+          const timer = setTimeout(() => { cleanup(); reject(new Error("timeout")); }, 15000);
+          function cleanup() {
+            clearTimeout(timer);
+            try { delete window[cb]; } catch (err) { window[cb] = undefined; }
+            if (s.parentNode) s.parentNode.removeChild(s);
+          }
+          window[cb] = function (data) { cleanup(); resolve(data); };
+          s.onerror = function () { cleanup(); reject(new Error("script")); };
+          s.src = url + (url.indexOf("?") >= 0 ? "&" : "?") + "callback=" + cb;
+          document.body.appendChild(s);
+        });
+      }
+      async function loadSheetLogs(force) {
+        if (sheetLogsCache && !force) return sheetLogsCache;
+        if (!sheetConfigured()) throw new Error("no-url");
+        const url = GOOGLE_SHEET_URL + "?game=" + encodeURIComponent(GAME_ID);
+        let data = null;
+        try {
+          const res = await fetch(url, { method: "GET" });
+          if (!res.ok) throw new Error("http");
+          data = await res.json();
+        } catch (err) { data = await jsonpSheet(url); }
+        if (!data || !data.ok) throw new Error("bad");
+        sheetLogsCache = rowsToLogs(data.rows);
+        return sheetLogsCache;
+      }
+      function saveSession() {
+        const db = loadStore();
+        ensureStudent();
+        const d = diagnose();
+        db.logs.push({
+          classId: state.classId, studentId: normalizeId(state.studentId),
+          done: state.done, avgSec: state.elapsed, diagnosis: d.sheet,
+          halfErr: state.miss.half, dataErr: state.miss.data, time: nowText()
+        });
+        saveStore(db);
+        return d;
+      }
+      function escapeHtml(s) {
+        return String(s).replace(/[&<>"'`]/g, (c) => ({
+          "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;", "`": "&#96;"
+        }[c]));
+      }
+      function cmpStudent(a, b) {
+        if (a.classId !== b.classId) return String(a.classId).localeCompare(String(b.classId), "zh-Hant");
+        const na = parseInt(a.studentId, 10), nb = parseInt(b.studentId, 10);
+        if (!Number.isNaN(na) && !Number.isNaN(nb) && na !== nb) return na - nb;
+        return String(a.studentId).localeCompare(String(b.studentId), "zh-Hant", { numeric: true });
+      }
+      function timeDay(t) {
+        const s = String(t || "");
+        const m = s.match(/^\d{4}\/\d{2}\/\d{2}/);
+        return m ? m[0] : (s || "（空白）");
+      }
+      function colValue(key, e) {
+        if (key === "student") return `${e.classId} ${e.studentId}`.trim() || "（空白）";
+        if (key === "score") return String(e.done);
+        if (key === "avg") return e.avgSec ? String(e.avgSec) : "—";
+        if (key === "hints") return String(e.hints || 0);
+        if (key === "track") return e.track || "（空白）";
+        if (key === "qname") return e.qname || "（空白）";
+        if (key === "level") return e.level || "（空白）";
+        if (key === "diagnosis") return e.body || e.diagnosis || "（空白）";
+        return timeDay(e.time);
+      }
+      function classLogs() {
+        let logs = dashAllLogs;
+        if (dashClass && dashClass !== "ALL") logs = logs.filter((e) => e.classId === dashClass);
+        if (dashView === "group") logs = logs.filter((e) => e.track === "小組" && e.qname !== "例題");
+        else if (dashView === "class") logs = logs.filter((e) => e.track === "個人");
+        else if (dashView === "homework") logs = logs.filter((e) => e.track === "功課");
+        return logs;
+      }
+      function uniqueValues(key) {
+        const set = new Set();
+        classLogs().forEach((e) => set.add(colValue(key, e)));
+        const arr = [...set];
+        const spec = dashCols().find((c) => c.key === key);
+        arr.sort((a, b) => {
+          if (spec && spec.numeric) {
+            const na = Number(a), nb = Number(b);
+            const fa = Number.isFinite(na), fb = Number.isFinite(nb);
+            if (fa && fb) return na - nb;
+            if (fa) return -1;
+            if (fb) return 1;
+          }
+          return String(a).localeCompare(String(b), "zh-Hant", { numeric: true });
+        });
+        return arr;
+      }
+      function filterActive(key) {
+        const sel = dashFilters[key];
+        return !!(sel && sel.size < uniqueValues(key).length);
+      }
+      function anyFilterOn() { return dashCols().some((c) => filterActive(c.key)); }
+      function passesFilters(e) {
+        return dashCols().every((col) => {
+          const sel = dashFilters[col.key];
+          if (!sel) return true;
+          return sel.has(colValue(col.key, e));
+        });
+      }
+      function sortLogs(logs) {
+        const col = dashSort.col;
+        const m = dashSort.dir === "asc" ? 1 : -1;
+        return logs.slice().sort((a, b) => {
+          let c = 0;
+          if (col === "score") c = a.done - b.done;
+          else if (col === "avg") c = (a.avgSec || 0) - (b.avgSec || 0);
+          else if (col === "hints") c = (a.hints || 0) - (b.hints || 0);
+          else if (col === "student") c = cmpStudent(a, b);
+          else if (col === "time") c = String(a.time || "").localeCompare(String(b.time || ""));
+          else if (col === "track" || col === "qname" || col === "level" || col === "diagnosis") {
+            c = String(colValue(col, a)).localeCompare(String(colValue(col, b)), "zh-Hant");
+          }
+          return (c * m) || cmpStudent(a, b);
+        });
+      }
+      function sortMark(key) {
+        if (dashSort.col !== key) return "";
+        return dashSort.dir === "asc" ? " ▲" : " ▼";
+      }
+      function closeFilterMenu() {
+        dashMenuCol = "";
+        const menu = $("dashFilterMenu");
+        if (menu) menu.classList.remove("show");
+      }
+      function resetDashFilters() {
+        dashFilters = {};
+        dashSort = { col: "student", dir: "asc" };
+        dashClass = "ALL";
+        closeFilterMenu();
+      }
+      function placeFilterMenu(anchor) {
+        const menu = $("dashFilterMenu");
+        const r = anchor.getBoundingClientRect();
+        menu.classList.add("show");
+        const w = menu.offsetWidth || 260;
+        const h = menu.offsetHeight || 280;
+        let left = Math.min(r.left, window.innerWidth - w - 8);
+        let top = r.bottom + 4;
+        if (top + h > window.innerHeight - 8) top = Math.max(8, r.top - h - 4);
+        if (left < 8) left = 8;
+        menu.style.left = left + "px";
+        menu.style.top = top + "px";
+      }
+      function renderFilterMenu(key, q) {
+        const spec = dashCols().find((c) => c.key === key);
+        if (!spec) return;
+        const values = uniqueValues(key);
+        const sel = dashFilters[key];
+        const query = String(q || "").trim();
+        const shown = query ? values.filter((v) => String(v).indexOf(query) !== -1) : values;
+        const allOn = !sel;
+        const sortDesc = key === "time" ? "新 → 舊" : (spec.numeric ? "由高到低" : "由 Z 到 A");
+        const sortAsc = key === "time" ? "舊 → 新" : (spec.numeric ? "由低到高" : "由 A 到 Z");
+        $("dashFilterMenu").innerHTML = `
+          <div class="fm-title">篩選：${escapeHtml(spec.label)}</div>
+          <div class="fm-acts">
+            <button type="button" data-fm="sort-desc">${sortDesc}</button>
+            <button type="button" data-fm="sort-asc">${sortAsc}</button>
+          </div>
+          <input type="search" id="fmSearch" placeholder="搜尋" value="${escapeHtml(query)}" />
+          <div class="fm-acts">
+            <button type="button" data-fm="all">全選</button>
+            <button type="button" data-fm="none">全不選</button>
+            <button type="button" data-fm="clear">清除此欄</button>
+          </div>
+          <div class="opts">
+            ${shown.map((v) => {
+              const on = allOn || sel.has(v);
+              const idx = values.indexOf(v);
+              return `<label><input type="checkbox" data-idx="${idx}" ${on ? "checked" : ""} />${escapeHtml(v)}</label>`;
+            }).join("") || `<div class="empty">沒有項目</div>`}
+          </div>`;
+        const search = $("fmSearch");
+        if (search) {
+          search.focus();
+          const n = search.value.length;
+          try { search.setSelectionRange(n, n); } catch (err) {}
+        }
+      }
+      function openFilterMenu(key, anchor) {
+        dashMenuCol = key;
+        renderFilterMenu(key, "");
+        placeFilterMenu(anchor);
+      }
+      function setColFilter(key, nextSet) {
+        const all = uniqueValues(key);
+        if (!nextSet || nextSet.size === all.length) dashFilters[key] = null;
+        else dashFilters[key] = nextSet;
+        paintDash();
+        if (dashMenuCol === key) {
+          const q = ($("fmSearch") && $("fmSearch").value) || "";
+          renderFilterMenu(key, q);
+          const btn = document.querySelector(`.filter-btn[data-filter="${key}"]`);
+          if (btn) placeFilterMenu(btn);
+        }
+      }
+      function paintDash() {
+        dashCols().forEach((col) => {
+          const sel = dashFilters[col.key];
+          if (!sel) return;
+          const all = new Set(uniqueValues(col.key));
+          const next = new Set([...sel].filter((v) => all.has(v)));
+          dashFilters[col.key] = next.size === all.size ? null : next;
+        });
+        const sourceEl = $("dashSource");
+        const base = classLogs();
+        const logs = base.filter(passesFilters);
+        const avgTime = logs.length ? Math.round(logs.reduce((n, e) => n + (e.avgSec || 0), 0) / logs.length) : 0;
+        const avgHints = logs.length ? Math.round((logs.reduce((n, e) => n + (e.hints || 0), 0) / logs.length) * 10) / 10 : 0;
+        const classes = [...new Set(dashAllLogs.map((s) => s.classId).filter(Boolean))].sort();
+        $("classFilter").innerHTML = `<option value="ALL">全部班別</option>` +
+          classes.map((c) => `<option value="${escapeHtml(c)}" ${c === dashClass ? "selected" : ""}>${escapeHtml(c)}</option>`).join("");
+        if ($("modeFilter")) $("modeFilter").value = dashView;
+        $("analysisCards").innerHTML = `
+          <div class="stat s1"><b>平均用時</b><strong>${logs.length ? avgTime + "秒" : "—"}</strong></div>
+          <div class="stat s2"><b>平均提醒次數</b><strong>${logs.length ? avgHints : "—"}</strong></div>
+          <div class="stat s3 errs"><b>三大主要錯處</b><div class="miss3">${logs.length ? topMissHtml(logs) : "—"}</div></div>`;
+        if ($("dashCount")) $("dashCount").textContent = dashAllLogs.length ? `顯示 ${logs.length} / ${base.length} 筆` : "";
+        if ($("clearFiltersBtn")) $("clearFiltersBtn").style.visibility = anyFilterOn() ? "visible" : "hidden";
+        if (!dashAllLogs.length) {
+          $("studentRecords").innerHTML = `<div class="empty">${sourceEl && sourceEl.textContent.indexOf("未能") >= 0 ? "未能連線 Google 試算表" : "未有紀錄"}</div>`;
+          return;
+        }
+        const ranked = sortLogs(logs);
+        const scores = ranked.map((e) => e.done || 0).slice().sort((a, b) => a - b);
+        const hiCut = scores.length ? scores[Math.max(0, scores.length - Math.ceil(scores.length * 0.2))] || 0 : 0;
+        const loCut = scores.length ? scores[Math.min(scores.length - 1, Math.floor(scores.length * 0.2))] || 0 : 0;
+        const cols = dashCols();
+        const showRank = dashSort.col === "score" && cols.some((c) => c.key === "score");
+        const head = (col) => {
+          const on = filterActive(col.key);
+          const sorted = dashSort.col === col.key ? " sorted" : "";
+          const extra = col.key === "score" ? " score-h" : "";
+          return `<th class="col-h${extra}${sorted}" data-col="${col.key}">
+            <button type="button" class="col-sort" data-sort="${col.key}">${escapeHtml(col.label)}${sortMark(col.key)}</button>
+            <button type="button" class="filter-btn${on ? " on" : ""}" data-filter="${col.key}" aria-label="篩選${escapeHtml(col.label)}">▼</button>
+          </th>`;
+        };
+        const span = cols.length + (showRank ? 1 : 0);
+        const body = ranked.length ? ranked.map((e, i) => {
+          const rank = dashSort.dir === "asc" ? ranked.length - i : i + 1;
+          const hi = e.done >= hiCut && e.done > 0;
+          const lo = e.done <= loCut;
+          const cells = cols.map((col) => `<td class="${col.key === "score" ? "score-cell" : col.key === "diagnosis" ? "diag-cell" : ""}">${escapeHtml(colValue(col.key, e))}</td>`).join("");
+          return `<tr class="${hi ? "hi" : lo ? "lo" : ""}">
+            ${showRank ? `<td class="rank-cell">${rank}</td>` : ""}
+            ${cells}
+          </tr>`;
+        }).join("") : `<tr><td colspan="${span}" class="empty">此篩選沒有紀錄，可再按 ▼ 更改篩選</td></tr>`;
+        $("studentRecords").innerHTML = `<table>
+          <thead><tr>
+            ${showRank ? `<th class="score-h">名次</th>` : ""}
+            ${cols.map(head).join("")}
+          </tr></thead>
+          <tbody>${body}</tbody>
+        </table>`;
+      }
+      function bestPerStudent(logs) {
+        const map = new Map();
+        (logs || []).forEach((e) => {
+          if (!e.studentId && !e.classId) return;
+          const key = studentKey(e.classId, e.studentId);
+          const prev = map.get(key);
+          const better = !prev
+            || (e.done || 0) > (prev.done || 0)
+            || ((e.done || 0) === (prev.done || 0) && (e.avgSec || 99999) < (prev.avgSec || 99999));
+          if (better) map.set(key, e);
+        });
+        return [...map.values()]
+          .filter((e) => (e.done || 0) > 0)
+          .sort((a, b) => {
+            if ((b.done || 0) !== (a.done || 0)) return (b.done || 0) - (a.done || 0);
+            const ta = a.avgSec || 99999, tb = b.avgSec || 99999;
+            if (ta !== tb) return ta - tb;
+            return cmpStudent(a, b);
+          })
+          .slice(0, 10);
+      }
+      async function renderRank(force) {
+        const seq = ++rankSeq;
+        const box = $("rankRecords");
+        if (!box) return;
+        box.innerHTML = `<div class="empty">載入排行榜…</div>`;
+        let logs = [], fail = false;
+        try { logs = await loadSheetLogs(!!force); }
+        catch (err) { fail = true; }
+        if (seq !== rankSeq) return;
+        if (fail) { box.innerHTML = `<div class="empty">未能連線</div>`; return; }
+        const top = bestPerStudent(logs.filter((e) => e.track === "功課"));
+        if (!top.length) { box.innerHTML = `<div class="empty">未有紀錄</div>`; return; }
+        const ranks = [];
+        top.forEach((e, i) => {
+          ranks.push(i > 0 && (e.done || 0) === (top[i - 1].done || 0) ? ranks[i - 1] : i + 1);
+        });
+        box.innerHTML = `<table>
+          <thead><tr><th class="score-h">名次</th><th>班別學號</th><th class="score-h">用時</th></tr></thead>
+          <tbody>${top.map((e, i) => {
+            const n = ranks[i];
+            const cls = n === 1 ? "r1" : n === 2 ? "r2" : n === 3 ? "r3" : "";
+            return `<tr class="${cls}"><td class="rank-cell">${n}</td><td>${escapeHtml(e.classId)} ${escapeHtml(e.studentId)}</td><td class="score-cell">${e.avgSec || 0}秒</td></tr>`;
+          }).join("")}</tbody></table>`;
+      }
+      async function renderDashboard(filterClass, force) {
+        const seq = ++dashSeq;
+        if (filterClass) dashClass = filterClass;
+        $("studentRecords").innerHTML = `<div class="empty">載入全班分數…</div>`;
+        $("analysisCards").innerHTML = `
+          <div class="stat s1"><b>平均用時</b><strong>…</strong></div>
+          <div class="stat s2"><b>平均提醒次數</b><strong>…</strong></div>
+          <div class="stat s3 errs"><b>三大主要錯處</b><div class="miss3">…</div></div>`;
+        let source = "";
+        try { dashAllLogs = await loadSheetLogs(!!force); source = "Google 試算表"; }
+        catch (err) {
+          dashAllLogs = loadStore().logs.map((e) => {
+            const parsed = parseTrack(e.diagnosis || "");
+            return Object.assign({}, e, {
+              body: parsed.body, track: parsed.track, level: parsed.level, qname: parsed.qname,
+              hints: e.hints != null ? e.hints : parsed.hints
+            });
+          });
+          source = "本機（未能連線試算表）";
+        }
+        if (seq !== dashSeq) return;
+        if ($("dashSource")) $("dashSource").textContent = source;
+        paintDash();
+      }
+
+      function unlockAudio() {
+        if (!audioCtx) {
+          const AC = window.AudioContext || window.webkitAudioContext;
+          if (AC) audioCtx = new AC();
+        }
+        if (audioCtx && audioCtx.state === "suspended") audioCtx.resume();
+      }
+      function tone(freq, dur, type, gain) {
+        if (!audioCtx) return;
+        const o = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        o.type = type || "sine"; o.frequency.value = freq; g.gain.value = gain || 0.05;
+        o.connect(g); g.connect(audioCtx.destination);
+        o.start();
+        g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+        o.stop(audioCtx.currentTime + dur);
+      }
+      function sfx(kind) {
+        unlockAudio();
+        if (kind === "ok") {
+          tone(523, 0.1, "triangle");
+          setTimeout(() => tone(659, 0.1, "triangle"), 80);
+          setTimeout(() => tone(784, 0.16, "triangle"), 160);
+        } else if (kind === "bad") tone(180, 0.2, "sawtooth", 0.04);
+        else if (kind === "win") [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => tone(f, 0.14, "triangle"), i * 100));
+      }
+      function formatClock(sec) {
+        const s = Math.max(0, sec | 0);
+        return `${Math.floor(s / 60)}分${String(s % 60).padStart(2, "0")}秒`;
+      }
+      function currentElapsed() {
+        if (state.ended) return state.elapsed;
+        if (!state.startedAt) return state.penalty;
+        return state.penalty + Math.max(0, Math.floor((Date.now() - state.startedAt) / 1000));
+      }
+      function renderHintCount() {
+        const el = $("hintCount");
+        if (!el) return;
+        el.textContent = "提示" + missSum() + "次";
+        el.style.display = timed() ? "" : "none";
+      }
+      function renderTimer() {
+        const s = currentElapsed();
+        $("timer").textContent = `⏱️ ${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+        renderHintCount();
+      }
+      function applyPenalty() { renderHintCount(); }
+      function stopClock() { clearInterval(countId); countId = null; }
+      function startClock() {
+        stopClock();
+        state.startedAt = Date.now();
+        state.penalty = 0;
+        state.elapsed = 0;
+        state.ended = false;
+        renderTimer();
+        countId = setInterval(() => { if (!state.ended) renderTimer(); }, 250);
+      }
+      function endSession() {
+        if (state.ended || !timed()) return;
+        state.elapsed = currentElapsed();
+        state.ended = true;
+        renderTimer();
+        stopClock();
+        const d = saveSession();
+        sendToGoogleSheet(d);
+        const total = state.mode === "homework" ? HW_TOTAL : 1;
+        $("reportScore").textContent = `答對 ${state.done}／${total} 題，用時 ${formatClock(state.elapsed)}`;
+        $("reportTip").textContent = d.tip;
+        $("reportModal").classList.add("show");
+        burstConfetti(160);
+        sfx("win");
+      }
+
+      function layoutCanvas() {
+        const r = scene.getBoundingClientRect();
+        state.cssW = r.width;
+        state.cssH = r.height;
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        scene.width = Math.max(1, Math.round(r.width * dpr));
+        scene.height = Math.max(1, Math.round(r.height * dpr));
+        if (!sceneCtx) sceneCtx = scene.getContext("2d");
+        sceneCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        fitView();
+      }
+      function fitView() {
+        const q = state.q;
+        if (!q || !state.cssW || !state.cssH) { state.view = null; return; }
+        const pts = q.outline.slice();
+        (q.labels || []).forEach((lb) => pts.push([lb.x, lb.y]));
+        (q.guides || []).forEach((g) => { pts.push(g.a, g.b); });
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        pts.forEach((p) => {
+          minX = Math.min(minX, p[0]); maxX = Math.max(maxX, p[0]);
+          minY = Math.min(minY, p[1]); maxY = Math.max(maxY, p[1]);
+        });
+        const padL = 36, padR = 36, padT = 46, padB = 16;
+        const bw = Math.max(0.1, maxX - minX), bh = Math.max(0.1, maxY - minY);
+        const sFit = Math.min((state.cssW - padL - padR) / bw, (state.cssH - padT - padB) / bh);
+        let s = sFit * 0.76;
+        const verts = uniqueVerts(q);
+        let minGeom = Infinity;
+        for (let i = 0; i < verts.length; i++) {
+          for (let j = i + 1; j < verts.length; j++) {
+            minGeom = Math.min(minGeom, Math.hypot(verts[i][0] - verts[j][0], verts[i][1] - verts[j][1]));
+          }
+        }
+        if (minGeom < Infinity && minGeom * s < 30) s = Math.min(sFit, 30 / minGeom);
+        const extraW = state.cssW - padL - padR - bw * s;
+        const extraH = state.cssH - padT - padB - bh * s;
+        state.view = {
+          s,
+          ox: padL + extraW / 2 - minX * s,
+          oy: state.cssH - padB - extraH / 2 + minY * s
+        };
+      }
+      function S(x, y) {
+        const v = state.view;
+        return [v.ox + x * v.s, v.oy - y * v.s];
+      }
+      function pathOf(ctx, poly) {
+        ctx.beginPath();
+        poly.forEach((p, i) => {
+          const xy = S(p[0], p[1]);
+          if (i === 0) ctx.moveTo(xy[0], xy[1]);
+          else ctx.lineTo(xy[0], xy[1]);
+        });
+        ctx.closePath();
+      }
+      function cutsVisible() {
+        if (!state.q) return [];
+        if (state.mode === "group" || levelOf() !== "basic") return state.gotCuts;
+        return state.q.cuts.map((_, i) => i);
+      }
+      function namesVisible() {
+        if (state.mode === "group") return state.phase !== "draw";
+        return levelOf() === "basic" || state.phase !== "draw";
+      }
+      function guideOn(g) {
+        if (g.need == null) return true;
+        return cutsVisible().indexOf(g.need) >= 0;
+      }
+      function segSupports(a, b, p, dir) {
+        const dx = b[0] - a[0], dy = b[1] - a[1];
+        const len = Math.hypot(dx, dy);
+        if (len < 1e-6) return false;
+        const ux = dx / len, uy = dy / len;
+        const vlen = Math.hypot(dir[0], dir[1]) || 1;
+        const cx = dir[0] / vlen, cy = dir[1] / vlen;
+        if (Math.abs(ux * cy - uy * cx) > 0.12) return false;
+        const t = (p[0] - a[0]) * ux + (p[1] - a[1]) * uy;
+        if (Math.hypot(a[0] + ux * t - p[0], a[1] + uy * t - p[1]) > 0.12) return false;
+        if (t < -0.12 || t > len + 0.12) return false;
+        const sign = ux * cx + uy * cy;
+        return sign > 0 ? (len - t) > 0.2 : t > 0.2;
+      }
+      function markOn(q, mk) {
+        const segs = [];
+        const o = q.outline;
+        for (let i = 0; i < o.length; i++) segs.push([o[i], o[(i + 1) % o.length]]);
+        const shown = new Set(cutsVisible());
+        q.cuts.forEach((c, i) => { if (shown.has(i)) segs.push([c[0], c[1]]); });
+        (q.guides || []).forEach((g) => { if (guideOn(g)) segs.push([g.a, g.b]); });
+        const hit = (dir) => segs.some((s) => segSupports(s[0], s[1], mk.at, dir));
+        return hit(mk.u) && hit(mk.v);
+      }
+      function strokeSeg(ctx, a, b, dashed) {
+        const p = S(a[0], a[1]), q = S(b[0], b[1]);
+        ctx.save();
+        ctx.strokeStyle = "#1d4e89";
+        ctx.lineWidth = dashed ? 2.5 : 3.2;
+        ctx.setLineDash(dashed ? [7, 5] : []);
+        ctx.beginPath();
+        ctx.moveTo(p[0], p[1]);
+        ctx.lineTo(q[0], q[1]);
+        ctx.stroke();
+        ctx.restore();
+      }
+      function segLen(a, b) { return Math.hypot(b[0] - a[0], b[1] - a[1]); }
+      function distPointSeg(px, py, a, b) {
+        const dx = b[0] - a[0], dy = b[1] - a[1];
+        const l2 = dx * dx + dy * dy;
+        if (l2 < 1e-8) return Math.hypot(px - a[0], py - a[1]);
+        const t = Math.max(0, Math.min(1, ((px - a[0]) * dx + (py - a[1]) * dy) / l2));
+        return Math.hypot(px - (a[0] + dx * t), py - (a[1] + dy * t));
+      }
+      function measureSegs(q) {
+        const segs = [];
+        const add = (a, b, kind) => {
+          const len = segLen(a, b);
+          if (len < 0.05) return;
+          const vertical = Math.abs(a[0] - b[0]) <= 0.08 && Math.abs(a[1] - b[1]) > 0.2;
+          segs.push({ a: a, b: b, len: len, kind: kind === "guide" && vertical ? "height" : kind });
+        };
+        const o = q.outline;
+        for (let i = 0; i < o.length; i++) add(o[i], o[(i + 1) % o.length], "solid");
+        (q.cuts || []).forEach((c) => add(c[0], c[1], "solid"));
+        (q.guides || []).forEach((g) => add(g.a, g.b, "guide"));
+        return segs;
+      }
+      function labelValue(text) {
+        const m = String(text).match(/(\d+(?:\.\d+)?)/);
+        return m ? Number(m[1]) : null;
+      }
+      function chooseSeg(segs, lb) {
+        const text = String(lb.t).replace(/\s+/g, "");
+        if (text.indexOf("高") === 0) {
+          const hs = segs.filter((s) => s.kind === "height");
+          hs.sort((a, b) => distPointSeg(lb.x, lb.y, a.a, a.b) - distPointSeg(lb.x, lb.y, b.a, b.b));
+          return hs[0] || null;
+        }
+        const num = labelValue(text);
+        let pool = num == null ? segs.slice() : segs.filter((s) => Math.abs(s.len - num) < 0.35);
+        if (!pool.length) pool = segs.slice();
+        pool.sort((a, b) => {
+          const da = distPointSeg(lb.x, lb.y, a.a, a.b);
+          const db = distPointSeg(lb.x, lb.y, b.a, b.b);
+          if (Math.abs(da - db) > 0.08) return da - db;
+          if ((a.kind === "height") !== (b.kind === "height")) return a.kind === "height" ? -1 : 1;
+          const ma = Math.hypot(lb.x - (a.a[0] + a.b[0]) / 2, lb.y - (a.a[1] + a.b[1]) / 2);
+          const mb = Math.hypot(lb.x - (b.a[0] + b.b[0]) / 2, lb.y - (b.a[1] + b.b[1]) / 2);
+          return ma - mb;
+        });
+        return pool[0] || null;
+      }
+      function segHitsAabb(x1, y1, x2, y2, rect) {
+        const l = rect.l, t = rect.t, r = rect.r, b = rect.b;
+        if (r - l < 1 || b - t < 1) return false;
+        if (x1 >= l && x1 <= r && y1 >= t && y1 <= b) return true;
+        if (x2 >= l && x2 <= r && y2 >= t && y2 <= b) return true;
+        const hit = (ax, ay, bx, by, cx, cy, dx, dy) => {
+          const d1 = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
+          const d2 = (bx - ax) * (dy - ay) - (by - ay) * (dx - ax);
+          const d3 = (dx - cx) * (ay - cy) - (dy - cy) * (ax - cx);
+          const d4 = (dx - cx) * (by - cy) - (dy - cy) * (bx - cx);
+          return d1 * d2 < 0 && d3 * d4 < 0;
+        };
+        return hit(x1, y1, x2, y2, l, t, r, t)
+          || hit(x1, y1, x2, y2, r, t, r, b)
+          || hit(x1, y1, x2, y2, r, b, l, b)
+          || hit(x1, y1, x2, y2, l, b, l, t);
+      }
+      function spotRect(s, shrink) {
+        const p = shrink || 0;
+        return { l: s.x - s.hw + p, t: s.y - s.up + p, r: s.x + s.hw - p, b: s.y + s.down - p };
+      }
+      function rectsOverlap(a, b) {
+        return a.l < b.r && b.l < a.r && a.t < b.b && b.t < a.b;
+      }
+      function rectHitsCircle(rect, cx, cy, rad) {
+        const x = Math.max(rect.l, Math.min(rect.r, cx));
+        const y = Math.max(rect.t, Math.min(rect.b, cy));
+        return Math.hypot(x - cx, y - cy) < rad;
+      }
+      function placeLabels(q) {
+        const ctx = sceneCtx;
+        ctx.font = "700 16px 'Noto Sans TC', sans-serif";
+        const segs = measureSegs(q);
+        const letters = (q.pieces || []).map((p) => S(p.at[0], p.at[1]));
+        const gap = 4, lineHalf = 2.2, stroke = 2;
+        const spots = (q.labels || []).map((lb) => {
+          const seg = chooseSeg(segs, lb);
+          const fallback = S(lb.x, lb.y);
+          if (!seg) return { t: lb.t, x: fallback[0], y: fallback[1], hw: 8, up: 8, down: 8, seg: null, placed: true };
+          const pa = S(seg.a[0], seg.a[1]), pb = S(seg.b[0], seg.b[1]);
+          const mx = (pa[0] + pb[0]) / 2, my = (pa[1] + pb[1]) / 2;
+          let tx = pb[0] - pa[0], ty = pb[1] - pa[1];
+          const slen = Math.hypot(tx, ty) || 1;
+          tx /= slen; ty /= slen;
+          const metrics = ctx.measureText(lb.t);
+          const halfW = metrics.width / 2 + stroke;
+          const up = (metrics.actualBoundingBoxAscent || 11) + stroke;
+          const down = (metrics.actualBoundingBoxDescent || 4) + stroke;
+          const spot = { t: lb.t, x: mx, y: my, hw: halfW, up: up, down: down, seg: seg, placed: false };
+          if (seg.kind === "height") {
+            spot.x = mx; spot.y = my; spot.mx = mx; spot.my = my; spot.tx = tx; spot.ty = ty; spot.slen = slen;
+            return spot;
+          }
+          let nx = -ty, ny = tx;
+          const auth = S(lb.x, lb.y);
+          const sideDot = (auth[0] - mx) * nx + (auth[1] - my) * ny;
+          if (sideDot < -0.5) { nx = -nx; ny = -ny; }
+          else if (Math.abs(sideDot) <= 0.5) {
+            const c = cen(q.outline), cs = S(c[0], c[1]);
+            if ((mx - cs[0]) * nx + (my - cs[1]) * ny < 0) { nx = -nx; ny = -ny; }
+          }
+          const reach = (ux, uy, extra) => {
+            const face = uy > 0 ? up : down;
+            return Math.abs(ux) * halfW + Math.abs(uy) * face + gap + lineHalf + extra;
+          };
+          const maxShift = Math.min(28, Math.max(0, slen * 0.35));
+          const shifts = [0];
+          if (maxShift >= 10) shifts.push(-Math.min(14, maxShift), Math.min(14, maxShift));
+          if (maxShift >= 22) shifts.push(-maxShift, maxShift);
+          const options = [];
+          [1, -1].forEach((side) => {
+            [0, 8, 16].forEach((extra) => {
+              shifts.forEach((shift) => options.push({ side: side, extra: extra, shift: shift }));
+            });
+          });
+          spot.nx = nx; spot.ny = ny; spot.tx = tx; spot.ty = ty; spot.mx = mx; spot.my = my;
+          spot.options = options;
+          spot.reach = reach;
+          spot.halfW = halfW;
+          const first = options[0];
+          const d0 = reach(nx * first.side, ny * first.side, first.extra);
+          spot.x = mx + nx * first.side * d0 + tx * first.shift;
+          spot.y = my + ny * first.side * d0 + ty * first.shift;
+          return spot;
+        });
+        const blocked = (spot, self) => {
+          const rect = spotRect(spot, 0.6);
+          if (spot.seg && spot.seg.kind !== "height") {
+            for (let i = 0; i < segs.length; i++) {
+              const s = segs[i];
+              const pa = S(s.a[0], s.a[1]), pb = S(s.b[0], s.b[1]);
+              if (segHitsAabb(pa[0], pa[1], pb[0], pb[1], rect)) return true;
+            }
+          }
+          for (let i = 0; i < letters.length; i++) {
+            if (rectHitsCircle(spotRect(spot, 0), letters[i][0], letters[i][1], 12)) return true;
+          }
+          for (let j = 0; j < spots.length; j++) {
+            if (j === self || !spots[j].placed) continue;
+            if (rectsOverlap(spotRect(spot, 0), spotRect(spots[j], 0))) return true;
+          }
+          const box = spotRect(spot, 0);
+          if (box.l < 2 || box.t < 2 || box.r > state.cssW - 2 || box.b > state.cssH - 2) return true;
+          return false;
+        };
+        const settle = (spot, self) => {
+          if (!spot.seg) { spot.placed = true; return; }
+          if (spot.seg.kind === "height") {
+            const limit = Math.min(28, Math.max(0, spot.slen * 0.35));
+            const shifts = [0];
+            if (limit >= 10) shifts.push(-Math.min(14, limit), Math.min(14, limit));
+            let chosen = null;
+            for (let i = 0; i < shifts.length; i++) {
+              const shift = shifts[i];
+              const trial = { t: spot.t, x: spot.mx + spot.tx * shift, y: spot.my + spot.ty * shift, hw: spot.hw, up: spot.up, down: spot.down, seg: spot.seg, placed: false };
+              const rect = spotRect(trial, 0);
+              let bad = rect.l < 2 || rect.t < 2 || rect.r > state.cssW - 2 || rect.b > state.cssH - 2;
+              if (!bad) {
+                for (let k = 0; k < letters.length; k++) {
+                  if (rectHitsCircle(rect, letters[k][0], letters[k][1], 12)) bad = true;
+                }
+              }
+              if (!bad) {
+                for (let j = 0; j < spots.length; j++) {
+                  if (j === self || !spots[j].placed) continue;
+                  if (rectsOverlap(rect, spotRect(spots[j], 0))) bad = true;
+                }
+              }
+              if (!bad) { chosen = trial; break; }
+            }
+            if (chosen) { spot.x = chosen.x; spot.y = chosen.y; }
+            spot.placed = true;
+            return;
+          }
+          let chosen = null;
+          for (let i = 0; i < spot.options.length; i++) {
+            const opt = spot.options[i];
+            const ux = spot.nx * opt.side, uy = spot.ny * opt.side;
+            const d = spot.reach(ux, uy, opt.extra);
+            const trial = { t: spot.t, x: spot.mx + ux * d + spot.tx * opt.shift, y: spot.my + uy * d + spot.ty * opt.shift, hw: spot.hw, up: spot.up, down: spot.down, seg: spot.seg, placed: false };
+            if (!blocked(trial, self)) { chosen = trial; break; }
+          }
+          if (chosen) { spot.x = chosen.x; spot.y = chosen.y; }
+          spot.placed = true;
+        };
+        for (let i = 0; i < spots.length; i++) settle(spots[i], i);
+        spots.forEach((s) => { s.placed = true; });
+        for (let i = 0; i < spots.length; i++) {
+          spots[i].placed = false;
+          settle(spots[i], i);
+        }
+        return spots;
+      }
+      function draw() {
+        if (!sceneCtx || !state.view || !state.q) return;
+        const ctx = sceneCtx;
+        const q = state.q;
+        ctx.clearRect(0, 0, state.cssW, state.cssH);
+        pathOf(ctx, q.outline);
+        ctx.fillStyle = "#8ec5ff";
+        ctx.fill();
+        ctx.lineJoin = "round";
+        ctx.lineCap = "round";
+        ctx.strokeStyle = "#14365c";
+        ctx.lineWidth = 3.5;
+        ctx.setLineDash([]);
+        ctx.stroke();
+        (q.guides || []).forEach((g) => {
+          if (!guideOn(g)) return;
+          const a = S(g.a[0], g.a[1]), b = S(g.b[0], g.b[1]);
+          ctx.save();
+          ctx.strokeStyle = "#5d7590";
+          ctx.lineWidth = 1.5;
+          ctx.setLineDash([5, 4]);
+          ctx.beginPath();
+          ctx.moveTo(a[0], a[1]);
+          ctx.lineTo(b[0], b[1]);
+          ctx.stroke();
+          ctx.restore();
+        });
+        const dashedCut = state.mode !== "group" && levelOf() === "basic";
+        const shown = new Set(cutsVisible());
+        q.cuts.forEach((c, idx) => {
+          if (!shown.has(idx)) return;
+          strokeSeg(ctx, c[0], c[1], dashedCut);
+        });
+        if (state.badCut && state.phase === "draw") strokeSeg(ctx, state.badCut[0], state.badCut[1], false);
+        (q.marks || []).forEach((mk) => {
+          if (!markOn(q, mk)) return;
+          const len = Math.min(0.55, 14 / state.view.s);
+          const p1 = [mk.at[0] + mk.u[0] * len, mk.at[1] + mk.u[1] * len];
+          const p2 = [p1[0] + mk.v[0] * len, p1[1] + mk.v[1] * len];
+          const p3 = [mk.at[0] + mk.v[0] * len, mk.at[1] + mk.v[1] * len];
+          ctx.save();
+          ctx.strokeStyle = "#1d4e89";
+          ctx.lineWidth = 1.6;
+          ctx.setLineDash([]);
+          ctx.beginPath();
+          [p1, p2, p3].forEach((p, i) => {
+            const xy = S(p[0], p[1]);
+            if (i === 0) ctx.moveTo(xy[0], xy[1]);
+            else ctx.lineTo(xy[0], xy[1]);
+          });
+          ctx.stroke();
+          ctx.restore();
+        });
+        ctx.save();
+        ctx.font = "700 16px 'Noto Sans TC', sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = "#fff";
+        ctx.fillStyle = "#1d3a5c";
+        ctx.setLineDash([]);
+        placeLabels(q).forEach((spot) => {
+          ctx.strokeText(spot.t, spot.x, spot.y);
+          ctx.fillText(spot.t, spot.x, spot.y);
+        });
+        if (namesVisible()) {
+          ctx.font = "900 22px 'Noto Sans TC', sans-serif";
+          q.pieces.forEach((p) => {
+            const xy = S(p.at[0], p.at[1]);
+            ctx.strokeText(p.letter, xy[0], xy[1]);
+            ctx.fillText(p.letter, xy[0], xy[1]);
+          });
+        }
+        ctx.restore();
+        if (state.phase === "draw") {
+          const dots = uniqueVerts(q).map((v) => S(v[0], v[1]));
+          let gap = Infinity;
+          for (let i = 0; i < dots.length; i++) {
+            for (let j = i + 1; j < dots.length; j++) {
+              gap = Math.min(gap, Math.hypot(dots[i][0] - dots[j][0], dots[i][1] - dots[j][1]));
+            }
+          }
+          const core = Math.min(6.5, Math.max(4, gap / 2 - 4));
+          let halo = core + 3;
+          if (halo * 2 > gap - 2) halo = Math.max(core + 1.2, gap / 2 - 1);
+          dots.forEach((xy) => {
+            ctx.beginPath();
+            ctx.arc(xy[0], xy[1], halo, 0, Math.PI * 2);
+            ctx.fillStyle = "#fff";
+            ctx.fill();
+          });
+          dots.forEach((xy) => {
+            ctx.beginPath();
+            ctx.arc(xy[0], xy[1], core, 0, Math.PI * 2);
+            ctx.fillStyle = "#1d4e89";
+            ctx.fill();
+          });
+          if (state.anchor && state.drag) {
+            const a = S(state.anchor[0], state.anchor[1]);
+            ctx.save();
+            ctx.strokeStyle = "#1d4e89";
+            ctx.lineWidth = 3.2;
+            ctx.setLineDash([]);
+            ctx.beginPath();
+            ctx.moveTo(a[0], a[1]);
+            ctx.lineTo(state.drag.x, state.drag.y);
+            ctx.stroke();
+            ctx.restore();
+            ctx.beginPath();
+            ctx.arc(a[0], a[1], 8, 0, Math.PI * 2);
+            ctx.fillStyle = "#ee4d93";
+            ctx.fill();
+          }
+        }
+      }
+      function uniqueVerts(q) {
+        const all = q.outline.slice();
+        q.cuts.forEach((c) => c.forEach((p) => all.push(p)));
+        const out = [];
+        all.forEach((p) => {
+          if (!out.some((v) => Math.hypot(v[0] - p[0], v[1] - p[1]) < 0.02)) out.push(p);
+        });
+        return out;
+      }
+      function samePt(a, b) { return Math.hypot(a[0] - b[0], a[1] - b[1]) < 0.05; }
+      function nearestVert(pt) {
+        if (!state.q || !state.view) return null;
+        let best = null, bestD = Infinity;
+        uniqueVerts(state.q).forEach((v) => {
+          const xy = S(v[0], v[1]);
+          const d = Math.hypot(xy[0] - pt.x, xy[1] - pt.y);
+          if (d < bestD) { bestD = d; best = v; }
+        });
+        if (!best || bestD > 36) return null;
+        return best;
+      }
+
+      function pickMode() {
+        return !!state.q && levelOf() !== "high";
+      }
+      function formulaBody(raw) {
+        const eq = topSplit(normalize(raw), "=");
+        return eq[0] || "";
+      }
+      function composeFinal() {
+        const q = state.q;
+        const n = q.pieces.length;
+        const picks = state.finalPicks || [];
+        const ops = state.finalOps || [];
+        if (picks.length < n || picks.slice(0, n).some((letter) => !letter)) return { expr: "", missing: "expr" };
+        if (n > 1 && (ops.length < n - 1 || ops.slice(0, n - 1).some((op) => !op))) return { expr: "", missing: "op" };
+        let expr = "";
+        for (let i = 0; i < n; i++) {
+          const body = formulaBody(state.locked[picks[i]] || "");
+          if (!body) return { expr: "", missing: "expr" };
+          if (i) expr += ops[i - 1];
+          expr += "(" + body + ")";
+        }
+        return { expr, missing: "" };
+      }
+      function selectionError() {
+        const n = state.q.pieces.length;
+        const picks = (state.finalPicks || []).slice(0, n);
+        const ops = (state.finalOps || []).slice(0, Math.max(0, n - 1));
+        if (new Set(picks).size !== n) return { err: "same" };
+        if (ops.some((op) => op === "−" || op === "-")) return { err: "minus" };
+        if (ops.some((op) => op !== "＋")) return { err: "op" };
+        return null;
+      }
+      function pickOptions(selected) {
+        const blank = `<option value=""${selected ? "" : " selected"}></option>`;
+        const opts = state.q.pieces.map((p) => {
+          const formula = state.locked[p.letter] || "";
+          if (!formula) return "";
+          return `<option value="${p.letter}"${selected === p.letter ? " selected" : ""}>${escapeHtml(formula)}</option>`;
+        }).join("");
+        return blank + opts;
+      }
+      function opOptions(selected) {
+        const blank = `<option value=""${selected ? "" : " selected"}></option>`;
+        return blank + ["＋", "−", "×", "÷"].map((op) => `<option value="${op}"${selected === op ? " selected" : ""}>${op}</option>`).join("");
+      }
+      function finalHint(q, level) {
+        const n = q.pieces.length;
+        if (level === "high") return n > 2 ? "三塊面積相加" : "兩塊面積相加";
+        if (level === "basic") {
+          return n > 2 ? "圖形A的面積＋圖形B的面積＋圖形C的面積" : "圖形A的面積＋圖形B的面積";
+        }
+        return n > 2 ? "三塊面積相加" : "圖形A的面積＋圖形B的面積";
+      }
+      function instruction() {
+        if (state.flash) return state.flash;
+        if (state.phase === "draw") return state.gotCuts.length ? "請再畫出分割線" : "請畫出分割線";
+        if (state.phase === "done") return "已完成這一題";
+        if (state.phase === "final") {
+          if (state.mode !== "class" && (state.formulaOk || state.finalFocus === "ans")) return "請寫出答案";
+          if (pickMode()) {
+            const built = composeFinal();
+            if (!built.expr) return built.missing === "op" ? "請選擇符號" : "請列多邊形面積";
+            return "請列多邊形面積";
+          }
+          return "請列多邊形面積";
+        }
+        return "請列圖形" + state.phase + "面積";
+      }
+      function feedback(err, letter, kind) {
+        if (err === "paren") return "請先加上底同下底";
+        if (err === "half") return kind === "trap" ? "梯形面積是一半" : "三角形面積是一半";
+        if (err === "same") return "請每個圖形選一次";
+        if (err === "op" || err === "minus") return "分割後要相加";
+        if (err === "cut") return "分割後圖形資料不足";
+        if (err === "data") return "請用圖上的長度";
+        if (err === "eq") return "請寫成一條算式";
+        if (err === "piece" && letter) return "請再列圖形" + letter + "面積";
+        return "請再計算";
+      }
+      function missKey(err, letter) {
+        if (err === "half") return "half";
+        if (err === "minus") return "minus";
+        if (err === "same" || err === "op") return "pick";
+        if (err === "data" || err === "cut") return "data";
+        if (err === "piece") return letter === "B" || letter === "C" ? letter : "A";
+        return "calc";
+      }
+      function noteMiss(err, letter, kind) {
+        const key = missKey(err, letter);
+        state.miss[key] += 1;
+        state.flash = feedback(err, letter, kind);
+        applyPenalty();
+        sfx("bad");
+        const bar = $("hintBar");
+        bar.classList.add("bad");
+        renderChrome();
+        const box = document.querySelector(".box.on");
+        if (box) {
+          box.classList.remove("shake");
+          void box.offsetWidth;
+          box.classList.add("shake");
+        }
+      }
+      function renderChrome() {
+        const q = state.q;
+        const level = levelOf();
+        $("playerPill").textContent = `${state.classId} ${normalizeId(state.studentId)}`;
+        $("timerWrap").style.display = timed() ? "" : "none";
+        renderHintCount();
+        const modeLabel = state.mode === "group" ? "課堂（小組）" : state.mode === "class" ? "課堂（個人）" : "功課";
+        const qLabel = state.mode === "homework" ? `第 ${state.qi + 1}／${HW_TOTAL} 題` : (q ? q.name : "");
+        const levelLabel = state.mode === "class" ? `（${levelName(level)}）` : "";
+        $("qPill").textContent = modeLabel;
+        $("taskTitle").textContent = levelLabel ? `${qLabel}${levelLabel}` : qLabel;
+        $("taskKind").textContent = "多邊形";
+        const bar = $("hintBar");
+        bar.textContent = instruction();
+        if (!state.flash) bar.classList.remove("bad");
+        renderWork();
+        renderKeys();
+        if (timed()) renderTimer();
+      }
+      function renderWork() {
+        const q = state.q;
+        const host = $("work");
+        if (!q || state.phase === "draw") { host.innerHTML = ""; host.style.display = "none"; return; }
+        host.style.display = "flex";
+        const level = levelOf();
+        const showPieces = level !== "high";
+        const letters = q.pieces.map((p) => p.letter);
+        const order = showPieces ? letters.concat(["final"]) : ["final"];
+        const pieceHtml = [];
+        let finalHtml = "";
+        order.forEach((key) => {
+          const piece = q.pieces.find((p) => p.letter === key);
+          const hint = state.mode === "group" ? "" : (key === "final"
+            ? finalHint(q, level)
+            : (level === "basic" ? piece.skeleton : `${piece.shape} ${piece.letter}`));
+          const under = hint ? `<div class="under${level === "high" && key === "final" ? " faint" : ""}">${escapeHtml(hint)}</div>` : "";
+          if (key === "final") {
+            const done = state.phase === "done";
+            const live = state.phase === "final";
+            const ans = done ? (state.locked.finalAns || "") : (live ? state.finalAns : "");
+            const ansReady = !!state.formulaOk;
+            const ansOn = live && ansReady && state.finalFocus === "ans";
+            let exprHtml;
+            if (level === "high") {
+              const expr = done ? (state.locked.finalExpr || "") : (live ? state.finalExpr : "");
+              const exprOn = live && !state.formulaOk;
+              const ok = done || (live && state.formulaOk) ? " ok" : "";
+              const sideAttr = done || state.formulaOk ? "" : ' data-side="expr"';
+              exprHtml = `<div class="box${exprOn ? " on" : ""}${ok}"${sideAttr}>${escapeHtml(expr)}</div>`;
+            } else {
+              const exprOn = live && !state.formulaOk;
+              const dis = live && !state.formulaOk ? "" : " disabled";
+              const ok = done || (live && state.formulaOk) ? " ok" : "";
+              const bits = [];
+              q.pieces.forEach((p, i) => {
+                if (i) bits.push(`<select class="box op${exprOn ? " on" : ""}${ok}" data-op="${i - 1}"${dis}>${opOptions(state.finalOps[i - 1] || "")}</select>`);
+                bits.push(`<select class="box pick${exprOn ? " on" : ""}${ok}" data-pick="${i}"${dis}>${pickOptions(state.finalPicks[i] || "")}</select>`);
+              });
+              exprHtml = bits.join("");
+            }
+            const ansHtml = state.mode === "class" ? "" : `<div class="eq">＝</div><div class="box ans${live && !ansReady ? " wait" : ""}${ansOn ? " on" : ""}${done ? " ok" : ""}" data-side="ans">${escapeHtml(ans)}</div>`;
+            finalHtml = `<div class="slot final${!done && !live ? " wait" : ""}">
+              <div class="lab">多邊形面積</div>
+              <div class="eq-row${level === "high" ? "" : " picks"}">
+                ${exprHtml}
+                ${ansHtml}
+              </div>
+              ${under}
+            </div>`;
+            return;
+          }
+          const locked = !!state.locked[key];
+          const on = state.phase === key;
+          const text = locked ? state.locked[key] : (on ? state.buf : "");
+          pieceHtml.push(`<div class="slot${on || locked ? "" : " wait"}">
+            <div class="lab">圖形${key}面積</div>
+            <div class="box${on ? " on" : ""}${locked ? " ok" : ""}">${escapeHtml(text)}</div>
+            ${under}
+          </div>`);
+        });
+        host.innerHTML = (pieceHtml.length ? `<div class="piece-row">${pieceHtml.join("")}</div>` : "") + finalHtml;
+      }
+      function missLineHtml() {
+        const items = [];
+        MISS_ORDER.forEach((k) => { if (state.miss[k]) items.push(`${MISS_LABEL[k]}（${state.miss[k]}次）`); });
+        if (!items.length) items.push("零失誤");
+        const lines = items.map((s) => `<div class="miss-item">• ${escapeHtml(s)}</div>`).join("");
+        return `<div class="miss-h">成績診斷：</div>${lines}`;
+      }
+      function renderKeys() {
+        const host = $("keypad");
+        if (!state.q || state.phase === "draw" || (state.phase === "done" && state.mode === "homework")) {
+          host.className = "keypad";
+          host.innerHTML = "";
+          host.style.display = "none";
+          return;
+        }
+        if (state.phase === "done") {
+          host.className = "keypad finish";
+          host.style.display = "flex";
+          host.innerHTML = `<div class="miss-line">${missLineHtml()}</div><button type="button" class="key go" id="savePicBtn" data-k="儲存並返回">儲存並返回</button>`;
+          return;
+        }
+        host.className = "keypad";
+        host.style.display = "grid";
+        const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "(", ")", "×", "÷", "＋", "−", "刪去", "清除", "完成"]
+          .map((k) => ({ k, cls: k === "完成" ? "go" : (k === "刪去" ? "del" : ("×÷＋−()".includes(k) ? "op" : "")) }));
+        host.innerHTML = keys.map((item) => `<button type="button" class="key ${item.cls}" data-k="${item.k}">${item.k}</button>`).join("");
+      }
+      function beginQuestion() {
+        const q = state.q;
+        state.gotCuts = [];
+        state.anchor = null;
+        state.drag = null;
+        state.badCut = null;
+        state.locked = {};
+        state.buf = "";
+        state.finalExpr = "";
+        state.finalAns = "";
+        state.finalPicks = [];
+        state.finalOps = [];
+        state.finalFocus = "expr";
+        state.formulaOk = false;
+        state.flash = "";
+        state.busy = false;
+        state.phase = (state.mode === "group" || levelOf() !== "basic") ? "draw" : q.pieces[0].letter;
+        renderChrome();
+        layoutCanvas();
+        draw();
+      }
+      function showMode(which) {
+        state.pick = which;
+        showScreen("mode");
+        const title = $("modeTitle");
+        const box = $("modeActs");
+        if (which === "root") {
+          title.textContent = "請選擇";
+          box.innerHTML = `<button class="candy sky" data-go="group">課堂（小組）</button><button class="candy pink" data-go="class">課堂（個人）</button><button class="candy lemon" data-go="hw">功課</button>`;
+        } else if (which === "group") {
+          title.textContent = "課堂（小組）";
+          box.innerHTML = `<button class="candy lemon" data-q="0">例題</button><button class="candy mint" data-q="1">第一題</button><button class="candy sky" data-q="2">第二題</button><button class="candy lilac" data-q="3">第三題</button>`;
+        } else if (which === "class") {
+          title.textContent = "課堂（個人）";
+          box.innerHTML = `<button class="candy lemon" data-lv="basic">基礎</button><button class="candy mint" data-lv="adv">進階</button><button class="candy sky" data-lv="high">高階</button>`;
+        } else {
+          title.textContent = levelName(state.level);
+          box.innerHTML = `<button class="candy lemon" data-cq="0">第一題</button><button class="candy mint" data-cq="1">第二題</button><button class="candy sky" data-cq="2">第三題</button>`;
+        }
+      }
+      function startFromLogin() {
+        const classId = $("classId").value.trim().toUpperCase();
+        const studentId = $("studentId").value.trim();
+        if (!classId || !studentId) { bounce($("startBtn")); return; }
+        unlockAudio();
+        state.classId = classId;
+        state.studentId = studentId;
+        state.done = 0;
+        state.miss = blankMiss();
+        state.ended = false;
+        state.sheetSent = false;
+        state.mode = "";
+        $("reportModal").classList.remove("show");
+        ensureStudent();
+        showMode("root");
+      }
+      function openGroup(i) {
+        state.mode = "group";
+        state.level = "basic";
+        state.qi = i;
+        state.q = GROUP[i];
+        state.done = 0;
+        state.miss = blankMiss();
+        state.ended = false;
+        state.sheetSent = false;
+        state.penalty = 0;
+        state.elapsed = 0;
+        showScreen("game");
+        startClock();
+        beginQuestion();
+      }
+      function postCurrent() {
+        if (isExample()) {
+          if (!state.ended) {
+            state.elapsed = currentElapsed();
+            state.ended = true;
+            stopClock();
+            renderTimer();
+          }
+          return;
+        }
+        if (state.sheetSent || state.ended) return;
+        if (state.done <= 0 && missSum() <= 0) return;
+        state.elapsed = currentElapsed();
+        state.ended = true;
+        stopClock();
+        const d = saveSession();
+        sendToGoogleSheet(d);
+      }
+      function openLevel(level) {
+        state.mode = "class";
+        state.level = level;
+        showMode("classQ");
+      }
+      function openClassQ(i) {
+        state.mode = "class";
+        state.qi = i;
+        state.q = CLASS[i];
+        state.paper = null;
+        state.done = 0;
+        state.miss = blankMiss();
+        state.sheetSent = false;
+        showScreen("game");
+        startClock();
+        beginQuestion();
+      }
+      function hwMemory() {
+        const db = loadStore();
+        const st = db.students[studentKey(state.classId, state.studentId)] || {};
+        return { seen: st.hwSeen || [], last: st.hwLast || "" };
+      }
+      function saveHwMemory(sigs) {
+        const db = loadStore();
+        const key = ensureStudent();
+        const prev = db.students[key].hwSeen || [];
+        db.students[key].hwSeen = prev.concat(sigs).slice(-80);
+        db.students[key].hwLast = sigs.join("|");
+        saveStore(db);
+      }
+      function openHomework() {
+        state.mode = "homework";
+        state.level = "adv";
+        state.done = 0;
+        state.miss = blankMiss();
+        state.sheetSent = false;
+        state.qi = 0;
+        const mem = hwMemory();
+        const paper = makeHomework(mem.seen, mem.last);
+        state.paper = paper.questions;
+        saveHwMemory(paper.sigs);
+        state.q = state.paper[0];
+        showScreen("game");
+        startClock();
+        beginQuestion();
+      }
+      function afterPiece(letter) {
+        state.locked[letter] = state.buf;
+        state.buf = "";
+        state.flash = "";
+        const q = state.q;
+        const idx = q.pieces.findIndex((p) => p.letter === letter);
+        sfx("ok");
+        if (idx >= 0 && idx < q.pieces.length - 1) state.phase = q.pieces[idx + 1].letter;
+        else state.phase = "final";
+        renderChrome();
+        draw();
+      }
+      function finishQuestion() {
+        state.locked.finalExpr = state.finalExpr;
+        state.locked.finalAns = state.finalAns;
+        state.done += 1;
+        state.flash = "";
+        state.phase = "done";
+        sfx("ok");
+        if (state.mode === "group" || state.mode === "class") {
+          renderChrome();
+          draw();
+          postCurrent();
+          return;
+        }
+        renderChrome();
+        draw();
+        const next = state.qi + 1;
+        if (!state.paper || next >= state.paper.length) {
+          state.busy = true;
+          setTimeout(() => endSession(), 400);
+          return;
+        }
+        state.busy = true;
+        setTimeout(() => {
+          state.qi = next;
+          state.q = state.paper[next];
+          beginQuestion();
+        }, 450);
+      }
+      function submitBuf() {
+        if (state.busy || state.ended || state.phase === "draw" || state.phase === "done") return;
+        const q = state.q;
+        if (state.phase === "final") { submitFinal(q); return; }
+        if (!state.buf.trim()) {
+          state.flash = "請列圖形" + state.phase + "面積";
+          $("hintBar").classList.add("bad");
+          renderChrome();
+          return;
+        }
+        const piece = q.pieces.find((p) => p.letter === state.phase);
+        const r = checkPiece(state.buf, piece);
+        if (!r.ok) { noteMiss(r.err, piece.letter, r.kind || piece.kind); return; }
+        afterPiece(piece.letter);
+      }
+      function submitFinal(q) {
+        let expr = "";
+        if (pickMode()) {
+          const built = composeFinal();
+          if (!built.expr) {
+            state.formulaOk = false;
+            state.finalFocus = "expr";
+            state.flash = built.missing === "op" ? "請選擇符號" : "請列多邊形面積";
+            $("hintBar").classList.add("bad");
+            renderChrome();
+            return;
+          }
+          const sel = selectionError();
+          if (sel) {
+            state.formulaOk = false;
+            state.finalExpr = built.expr;
+            state.finalFocus = "expr";
+            noteMiss(sel.err);
+            return;
+          }
+          expr = built.expr;
+          state.finalExpr = expr;
+        } else {
+          expr = state.finalExpr.trim();
+          if (!expr) {
+            state.formulaOk = false;
+            state.finalFocus = "expr";
+            state.flash = "請列多邊形面積";
+            $("hintBar").classList.add("bad");
+            renderChrome();
+            return;
+          }
+        }
+        const total = q.pieces.reduce((n, p) => n + p.area, 0);
+        const probe = checkFinal(expr + "＝" + total, q.pieces);
+        if (!probe.ok) {
+          state.formulaOk = false;
+          state.finalFocus = "expr";
+          noteMiss(probe.err, probe.letter, probe.kind);
+          return;
+        }
+        if (state.mode === "class") {
+          state.formulaOk = true;
+          state.flash = "";
+          finishQuestion();
+          return;
+        }
+        if (!state.formulaOk) {
+          state.formulaOk = true;
+          state.finalFocus = "ans";
+          state.flash = "";
+          sfx("ok");
+          renderChrome();
+          return;
+        }
+        const ans = state.finalAns.trim();
+        if (!ans) {
+          state.finalFocus = "ans";
+          state.flash = "請寫出答案";
+          $("hintBar").classList.add("bad");
+          renderChrome();
+          return;
+        }
+        const r = checkFinal(expr + "＝" + ans, q.pieces);
+        if (!r.ok) {
+          state.finalFocus = "ans";
+          noteMiss(r.err, r.letter, r.kind);
+          return;
+        }
+        finishQuestion();
+      }
+      function activeBuf() {
+        if (state.phase !== "final") return state.buf;
+        if (pickMode() || state.finalFocus === "ans") return state.finalAns;
+        return state.finalExpr;
+      }
+      function setActiveBuf(v) {
+        if (state.phase !== "final") { state.buf = v; return; }
+        if (state.formulaOk) { state.finalAns = v; return; }
+        if (pickMode()) { state.finalAns = v; return; }
+        state.finalExpr = v;
+      }
+      function roundShot(ctx, x, y, w, h, r, fill) {
+        const rad = Math.max(0, Math.min(r || 0, w / 2, h / 2));
+        ctx.beginPath();
+        ctx.moveTo(x + rad, y);
+        ctx.arcTo(x + w, y, x + w, y + h, rad);
+        ctx.arcTo(x + w, y + h, x, y + h, rad);
+        ctx.arcTo(x, y + h, x, y, rad);
+        ctx.arcTo(x, y, x + w, y, rad);
+        ctx.closePath();
+        ctx.fillStyle = fill;
+        ctx.fill();
+      }
+      function strokeShot(ctx, x, y, w, h, r, color, width) {
+        const rad = Math.max(0, Math.min(r || 0, w / 2, h / 2));
+        ctx.beginPath();
+        ctx.moveTo(x + rad, y);
+        ctx.arcTo(x + w, y, x + w, y + h, rad);
+        ctx.arcTo(x + w, y + h, x, y + h, rad);
+        ctx.arcTo(x, y + h, x, y, rad);
+        ctx.arcTo(x, y, x + w, y, rad);
+        ctx.closePath();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = width;
+        ctx.stroke();
+      }
+      function drawShotText(ctx, text, r, origin, cs) {
+        const clean = String(text || "").replace(/\s+/g, " ").trim();
+        if (!clean || r.width < 2 || r.height < 2) return;
+        const x = r.left - origin.left;
+        const y = r.top - origin.top;
+        const padL = parseFloat(cs.paddingLeft) || 0;
+        const padR = parseFloat(cs.paddingRight) || 0;
+        ctx.save();
+        ctx.fillStyle = cs.color || "#1d3a5c";
+        ctx.font = `${cs.fontStyle || "normal"} ${cs.fontWeight || "400"} ${cs.fontSize || "16px"} ${cs.fontFamily || "sans-serif"}`;
+        ctx.textBaseline = "middle";
+        const align = cs.textAlign === "center" ? "center" : (cs.textAlign === "right" || cs.textAlign === "end" ? "right" : "left");
+        ctx.textAlign = align;
+        const tx = align === "center" ? x + r.width / 2 : align === "right" ? x + r.width - padR : x + padL;
+        const overflow = Math.max(0, ctx.measureText(clean).width - Math.max(1, r.width - padL - padR));
+        const bleed = Math.ceil(overflow) + 3;
+        ctx.beginPath();
+        ctx.rect(x - bleed, y - bleed, r.width + bleed * 2, r.height + bleed * 2);
+        ctx.clip();
+        ctx.fillText(clean, tx, y + r.height / 2);
+        ctx.restore();
+      }
+      function paintShotNode(ctx, node, origin) {
+        if (!node || node.nodeType !== 1 || node.id === "savePicBtn") return;
+        const cs = getComputedStyle(node);
+        if (cs.display === "none" || cs.visibility === "hidden") return;
+        const r = node.getBoundingClientRect();
+        const x = r.left - origin.left;
+        const y = r.top - origin.top;
+        if (node.tagName === "CANVAS") {
+          if (r.width > 1 && r.height > 1) ctx.drawImage(node, x, y, r.width, r.height);
+          return;
+        }
+        const bg = cs.backgroundColor;
+        if (bg && bg !== "rgba(0, 0, 0, 0)" && bg !== "transparent" && r.width > 1 && r.height > 1) {
+          roundShot(ctx, x, y, r.width, r.height, parseFloat(cs.borderRadius) || 0, bg);
+        }
+        const bw = parseFloat(cs.borderTopWidth) || 0;
+        if (bw > 0 && cs.borderTopStyle !== "none" && r.width > 1 && r.height > 1) {
+          strokeShot(ctx, x + bw / 2, y + bw / 2, Math.max(1, r.width - bw), Math.max(1, r.height - bw), parseFloat(cs.borderRadius) || 0, cs.borderTopColor, bw);
+        }
+        if (node.tagName === "SELECT" || node.tagName === "INPUT" || node.tagName === "TEXTAREA") {
+          const text = node.tagName === "SELECT"
+            ? (node.selectedIndex >= 0 && node.options[node.selectedIndex] ? node.options[node.selectedIndex].textContent : "")
+            : (node.value || "");
+          drawShotText(ctx, text, r, origin, cs);
+          return;
+        }
+        const kids = [...node.childNodes];
+        if (!kids.some((k) => k.nodeType === 1)) drawShotText(ctx, node.textContent, r, origin, cs);
+        kids.forEach((k) => { if (k.nodeType === 1) paintShotNode(ctx, k, origin); });
+      }
+      function buildShotCanvas() {
+        const root = document.querySelector(".app");
+        const screen = $("screen-game");
+        if (!root || !screen) return null;
+        const rect = root.getBoundingClientRect();
+        if (rect.width < 20 || rect.height < 20) return null;
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(rect.width * dpr);
+        canvas.height = Math.round(rect.height * dpr);
+        const ctx = canvas.getContext("2d");
+        ctx.scale(dpr, dpr);
+        ctx.fillStyle = "#e8f3ff";
+        ctx.fillRect(0, 0, rect.width, rect.height);
+        paintShotNode(ctx, screen, rect);
+        return canvas;
+      }
+      function shotName() {
+        const who = `${state.classId || ""}${normalizeId(state.studentId)}`;
+        const qname = state.q && state.q.name ? state.q.name : "題目";
+        let mid = "功課";
+        if (state.mode === "group") mid = "小組-" + qname;
+        else if (state.mode === "class") mid = "個人-" + levelName(state.level) + "-" + qname;
+        return (who + "-" + mid).replace(/[\\/:*?"<>|]/g, "") + ".png";
+      }
+      function downloadBlob(blob, name) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = name;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 2500);
+      }
+      let saveBusy = false;
+      function leaveQuestion() {
+        saveBusy = false;
+        showMode(state.mode === "class" ? "classQ" : "group");
+      }
+      function saveAndLeave() {
+        if (saveBusy) return;
+        saveBusy = true;
+        const btn = $("savePicBtn");
+        if (btn) btn.style.display = "none";
+        let canvas = null;
+        try { canvas = buildShotCanvas(); }
+        finally { if (btn) btn.style.display = ""; }
+        if (!canvas) {
+          saveBusy = false;
+          state.flash = "未能儲存畫面";
+          renderChrome();
+          return;
+        }
+        const name = shotName();
+        canvas.toBlob((blob) => {
+          if (!blob) {
+            saveBusy = false;
+            state.flash = "未能儲存畫面";
+            renderChrome();
+            return;
+          }
+          const file = new File([blob], name, { type: "image/png" });
+          const touch = navigator.maxTouchPoints > 1;
+          if (touch && navigator.canShare && navigator.canShare({ files: [file] })) {
+            navigator.share({ files: [file], title: name }).then(() => {
+              leaveQuestion();
+            }).catch((err) => {
+              if (err && err.name === "AbortError") { saveBusy = false; return; }
+              downloadBlob(blob, name);
+              leaveQuestion();
+            });
+            return;
+          }
+          downloadBlob(blob, name);
+          leaveQuestion();
+        }, "image/png");
+      }
+      function pressKey(k) {
+        if (state.phase === "done") {
+          if (k === "儲存並返回") { saveAndLeave(); return; }
+          return;
+        }
+        if (state.busy || state.phase === "draw") return;
+        if (pickMode() && state.phase === "final" && !state.formulaOk && k !== "完成") return;
+        if (k === "完成") { submitBuf(); return; }
+        if (k === "清除") { setActiveBuf(""); state.flash = ""; renderChrome(); return; }
+        if (k === "刪去") { setActiveBuf([...activeBuf()].slice(0, -1).join("")); state.flash = ""; renderChrome(); return; }
+        if (k === "＝" || k === "=") return;
+        if (activeBuf().length >= 48) return;
+        setActiveBuf(activeBuf() + k);
+        state.flash = "";
+        renderChrome();
+      }
+      function scenePoint(e) {
+        const r = scene.getBoundingClientRect();
+        return { x: e.clientX - r.left, y: e.clientY - r.top };
+      }
+      function onPointerDown(e) {
+        if (!state.q || state.phase !== "draw" || state.busy || state.ended) return;
+        const v = nearestVert(scenePoint(e));
+        if (!v) return;
+        e.preventDefault();
+        state.badCut = null;
+        state.flash = "";
+        state.anchor = v;
+        state.drag = scenePoint(e);
+        try { scene.setPointerCapture(e.pointerId); } catch (err) {}
+        const bar = $("hintBar");
+        if (bar) bar.classList.remove("bad");
+        draw();
+      }
+      function onPointerMove(e) {
+        if (!state.q || state.phase !== "draw") { scene.style.cursor = "default"; return; }
+        if (state.anchor) {
+          state.drag = scenePoint(e);
+          scene.style.cursor = "pointer";
+          draw();
+          return;
+        }
+        scene.style.cursor = nearestVert(scenePoint(e)) ? "pointer" : "default";
+      }
+      function onPointerUp(e) {
+        if (!state.anchor || !state.q || state.phase !== "draw") return;
+        const v = nearestVert(scenePoint(e));
+        const anchor = state.anchor;
+        state.anchor = null;
+        state.drag = null;
+        if (!v || samePt(anchor, v)) { draw(); return; }
+        const idx = state.q.cuts.findIndex((c, i) => state.gotCuts.indexOf(i) < 0 && (
+          (samePt(anchor, c[0]) && samePt(v, c[1])) || (samePt(anchor, c[1]) && samePt(v, c[0]))
+        ));
+        if (idx < 0) {
+          state.badCut = [[anchor[0], anchor[1]], [v[0], v[1]]];
+          noteMiss("cut");
+          draw();
+          return;
+        }
+        state.badCut = null;
+        state.gotCuts.push(idx);
+        state.flash = "";
+        sfx("ok");
+        if (state.gotCuts.length >= state.q.cuts.length) {
+          const level = levelOf();
+          state.phase = level === "high" ? "final" : state.q.pieces[0].letter;
+          state.buf = "";
+        }
+        renderChrome();
+        draw();
+      }
+      function onPointerCancel() {
+        state.anchor = null;
+        state.drag = null;
+        draw();
+      }
+
+      function leaveGame() {
+        if (state.mode === "homework" && !state.ended && (state.done > 0 || missSum() > 0)) {
+          endSession();
+          return;
+        }
+        if (!isExample() && !state.sheetSent && !state.ended && (state.done > 0 || missSum() > 0)) postCurrent();
+        stopClock();
+        $("studentId").value = "";
+        $("reportModal").classList.remove("show");
+        showScreen("login");
+        $("studentId").focus();
+      }
+
+      const confetti = $("confetti");
+      const cfx = confetti.getContext("2d");
+      let pieces = [];
+      function resizeConfetti() { confetti.width = window.innerWidth; confetti.height = window.innerHeight; }
+      function burstConfetti(count) {
+        const colors = ["#4c9dff", "#7eb6ff", "#ffe066", "#ff7eb6", "#7eecc8"];
+        for (let i = 0; i < count; i++) {
+          pieces.push({
+            x: confetti.width * (0.2 + Math.random() * 0.6), y: -12,
+            r: 4 + Math.random() * 6, c: colors[i % colors.length],
+            vx: -3 + Math.random() * 6, vy: 3 + Math.random() * 5,
+            rot: Math.random() * 360, vr: -8 + Math.random() * 16,
+            life: 80 + Math.random() * 40, shape: i % 3
+          });
+        }
+      }
+      (function tick() {
+        cfx.clearRect(0, 0, confetti.width, confetti.height);
+        pieces = pieces.filter((p) => p.life > 0);
+        pieces.forEach((p) => {
+          p.x += p.vx; p.y += p.vy; p.vy += 0.12; p.rot += p.vr; p.life -= 1;
+          cfx.save(); cfx.translate(p.x, p.y); cfx.rotate(p.rot * Math.PI / 180);
+          cfx.globalAlpha = Math.max(0, p.life / 70); cfx.fillStyle = p.c;
+          if (p.shape === 0) cfx.fillRect(-p.r, -p.r / 2, p.r * 2, p.r);
+          else if (p.shape === 1) { cfx.beginPath(); cfx.arc(0, 0, p.r, 0, Math.PI * 2); cfx.fill(); }
+          else { cfx.beginPath(); cfx.moveTo(0, -p.r); cfx.lineTo(p.r, p.r); cfx.lineTo(-p.r, p.r); cfx.fill(); }
+          cfx.restore();
+        });
+        requestAnimationFrame(tick);
+      })();
+      resizeConfetti();
+      window.addEventListener("resize", () => {
+        resizeConfetti();
+        if (screens.game.classList.contains("active")) { layoutCanvas(); draw(); }
+      });
+      if (window.ResizeObserver) {
+        new ResizeObserver(() => {
+          if (!screens.game.classList.contains("active") || !state.q) return;
+          layoutCanvas();
+          draw();
+        }).observe($("board"));
+      }
+
+      $("startBtn").addEventListener("click", startFromLogin);
+      $("classId").addEventListener("keydown", (e) => { if (e.key === "Enter") $("studentId").focus(); });
+      $("studentId").addEventListener("keydown", (e) => { if (e.key === "Enter") startFromLogin(); });
+      $("modeBack").addEventListener("click", () => {
+        if (state.pick === "root") showScreen("login");
+        else if (state.pick === "classQ") showMode("class");
+        else showMode("root");
+      });
+      $("modeActs").addEventListener("click", (e) => {
+        const btn = e.target.closest("button");
+        if (!btn) return;
+        if (btn.dataset.go === "hw") openHomework();
+        else if (btn.dataset.go) showMode(btn.dataset.go);
+        else if (btn.dataset.q != null) openGroup(Number(btn.dataset.q));
+        else if (btn.dataset.lv) openLevel(btn.dataset.lv);
+        else if (btn.dataset.cq != null) openClassQ(Number(btn.dataset.cq));
+      });
+      $("keypad").addEventListener("click", (e) => {
+        const btn = e.target.closest("button[data-k]");
+        if (!btn) return;
+        pressKey(btn.getAttribute("data-k"));
+      });
+      $("work").addEventListener("click", (e) => {
+        const box = e.target.closest("[data-side]");
+        if (!box || state.phase !== "final" || state.ended) return;
+        const side = box.getAttribute("data-side");
+        if (side === "ans" && !state.formulaOk) return;
+        if (state.formulaOk) return;
+        if (pickMode() && side !== "ans") return;
+        state.finalFocus = side === "ans" ? "ans" : "expr";
+        state.flash = "";
+        renderChrome();
+      });
+      $("work").addEventListener("change", (e) => {
+        const el = e.target;
+        if (state.phase !== "final" || !pickMode() || state.formulaOk) return;
+        if (el.dataset.pick != null) state.finalPicks[Number(el.dataset.pick)] = el.value;
+        if (el.dataset.op != null) state.finalOps[Number(el.dataset.op)] = el.value;
+        const built = composeFinal();
+        state.finalExpr = built.expr;
+        state.finalFocus = "expr";
+        state.flash = "";
+        renderChrome();
+      });
+      scene.addEventListener("pointerdown", onPointerDown);
+      scene.addEventListener("pointermove", onPointerMove);
+      scene.addEventListener("pointerup", onPointerUp);
+      scene.addEventListener("pointercancel", onPointerCancel);
+      document.addEventListener("keydown", (e) => {
+        if (!screens.game.classList.contains("active")) return;
+        if (e.target && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.tagName === "SELECT")) return;
+        const map = { "*": "×", x: "×", X: "×", "/": "÷", "+": "＋", "-": "−", Enter: "完成", Backspace: "刪去" };
+        if (map[e.key]) { e.preventDefault(); pressKey(map[e.key]); return; }
+        if (/^[0-9()]$/.test(e.key)) { e.preventDefault(); pressKey(e.key); }
+      });
+      $("rankBtn").addEventListener("click", () => { showScreen("rank"); renderRank(true); });
+      $("rankBackBtn").addEventListener("click", () => showScreen("login"));
+      $("rankRefreshBtn").addEventListener("click", () => renderRank(true));
+      $("teacherBtn").addEventListener("click", () => {
+        $("pinModal").classList.add("show");
+        $("pinInput").value = "";
+        $("pinInput").focus();
+      });
+      $("pinCancel").addEventListener("click", () => $("pinModal").classList.remove("show"));
+      $("pinOk").addEventListener("click", () => {
+        if ($("pinInput").value === TEACHER_PIN) {
+          $("pinModal").classList.remove("show");
+          resetDashFilters();
+          showScreen("dash");
+          renderDashboard("ALL", true);
+        } else {
+          bounce($("pinInput"));
+          $("pinInput").classList.add("shake");
+          setTimeout(() => $("pinInput").classList.remove("shake"), 400);
+          $("pinInput").value = "";
+        }
+      });
+      $("pinInput").addEventListener("keydown", (e) => { if (e.key === "Enter") $("pinOk").click(); });
+      $("dashBackBtn").addEventListener("click", () => { closeFilterMenu(); showScreen("login"); });
+      $("backLoginBtn").addEventListener("click", leaveGame);
+      $("reportBackBtn").addEventListener("click", () => {
+        $("reportModal").classList.remove("show");
+        $("studentId").value = "";
+        showScreen("login");
+        $("studentId").focus();
+      });
+      $("printBtn").addEventListener("click", () => window.print());
+      $("modeFilter").addEventListener("change", (e) => {
+        dashView = e.target.value || "all";
+        dashFilters = {};
+        closeFilterMenu();
+        paintDash();
+      });
+      $("classFilter").addEventListener("change", (e) => {
+        dashClass = e.target.value || "ALL";
+        closeFilterMenu();
+        paintDash();
+      });
+      $("clearFiltersBtn").addEventListener("click", () => { dashFilters = {}; closeFilterMenu(); paintDash(); });
+      $("studentRecords").addEventListener("click", (e) => {
+        const fb = e.target.closest(".filter-btn");
+        if (fb) {
+          e.stopPropagation();
+          const key = fb.getAttribute("data-filter");
+          if (dashMenuCol === key && $("dashFilterMenu").classList.contains("show")) closeFilterMenu();
+          else openFilterMenu(key, fb);
+          return;
+        }
+        const sb = e.target.closest(".col-sort");
+        if (!sb) return;
+        const key = sb.getAttribute("data-sort");
+        if (dashSort.col === key) dashSort.dir = dashSort.dir === "desc" ? "asc" : "desc";
+        else dashSort = { col: key, dir: (key === "student" || key === "diagnosis") ? "asc" : "desc" };
+        paintDash();
+      });
+      $("dashFilterMenu").addEventListener("click", (e) => {
+        const btn = e.target.closest("button[data-fm]");
+        if (!btn || !dashMenuCol) return;
+        const act = btn.getAttribute("data-fm");
+        const key = dashMenuCol;
+        if (act === "sort-desc") { dashSort = { col: key, dir: "desc" }; paintDash(); }
+        else if (act === "sort-asc") { dashSort = { col: key, dir: "asc" }; paintDash(); }
+        else if (act === "all" || act === "clear") setColFilter(key, null);
+        else if (act === "none") setColFilter(key, new Set());
+        if (act === "sort-desc" || act === "sort-asc") {
+          const anchor = document.querySelector(`.filter-btn[data-filter="${key}"]`);
+          if (anchor) placeFilterMenu(anchor);
+        }
+      });
+      $("dashFilterMenu").addEventListener("change", (e) => {
+        const inp = e.target;
+        if (!inp.matches || !inp.matches("input[type='checkbox'][data-idx]")) return;
+        const key = dashMenuCol;
+        const values = uniqueValues(key);
+        const val = values[Number(inp.getAttribute("data-idx"))];
+        if (val == null) return;
+        const sel = dashFilters[key] ? new Set(dashFilters[key]) : new Set(values);
+        if (inp.checked) sel.add(val); else sel.delete(val);
+        setColFilter(key, sel);
+      });
+      $("dashFilterMenu").addEventListener("input", (e) => {
+        if (e.target.id !== "fmSearch" || !dashMenuCol) return;
+        renderFilterMenu(dashMenuCol, e.target.value);
+        const btn = document.querySelector(`.filter-btn[data-filter="${dashMenuCol}"]`);
+        if (btn) placeFilterMenu(btn);
+      });
+      document.addEventListener("click", (e) => {
+        const menu = $("dashFilterMenu");
+        if (!menu || !menu.classList.contains("show")) return;
+        if (menu.contains(e.target) || e.target.closest(".filter-btn")) return;
+        closeFilterMenu();
+      });
+      $("refreshDashBtn").addEventListener("click", () => renderDashboard($("classFilter").value || "ALL", true));
+
+      function shoelace(poly) {
+        let a = 0;
+        for (let i = 0; i < poly.length; i++) {
+          const p = poly[i], q = poly[(i + 1) % poly.length];
+          a += p[0] * q[1] - q[0] * p[1];
+        }
+        return Math.abs(a) / 2;
+      }
+      function insidePoly(poly, x, y) {
+        let inside = false;
+        for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+          const xi = poly[i][0], yi = poly[i][1], xj = poly[j][0], yj = poly[j][1];
+          if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi + 0) + xi)) inside = !inside;
+        }
+        return inside;
+      }
+      function auditQ(q) {
+        const issues = [];
+        const area = shoelace(q.outline);
+        const want = q.pieces.reduce((n, p) => n + p.area, 0);
+        if (Math.abs(area - want) > 0.6) issues.push("outline " + area.toFixed(1) + "/" + want);
+        q.pieces.forEach((p) => {
+          const a = shoelace(p.poly);
+          if (Math.abs(a - p.area) > 0.6) issues.push(p.letter + " poly " + a.toFixed(1));
+          if (Math.abs(p.area - Math.round(p.area)) > 1e-6) issues.push(p.letter + " frac");
+          if (!insidePoly(p.poly, p.at[0], p.at[1])) issues.push(p.letter + " letter");
+          if (p.kind === "tri") {
+            const ok = p.nums.some((n, i) => p.nums.some((m, j) => j > i && Math.abs(n * m / 2 - p.area) < 1e-6));
+            if (!ok) issues.push(p.letter + " tri");
+          }
+          if (p.kind === "trap" && !trapBases(p)) issues.push(p.letter + " trap");
+          if ((p.kind === "rect" || p.kind === "para" || p.kind === "sq") && p.nums.length < 3) {
+            const ok = (p.nums.length === 1 && Math.abs(p.nums[0] * p.nums[0] - p.area) < 1e-6) ||
+              p.nums.some((n, i) => p.nums.some((m, j) => i !== j && Math.abs(n * m - p.area) < 1e-6));
+            if (!ok) issues.push(p.letter + " quad");
+          }
+        });
+        q.cuts.forEach((c, i) => {
+          c.forEach((pt) => {
+            if (!q.outline.some((v) => Math.hypot(v[0] - pt[0], v[1] - pt[1]) < 0.05)) issues.push("cut" + i);
+          });
+        });
+        const verts = q.outline;
+        (q.labels || []).forEach((lb, i) => {
+          const d = Math.min.apply(null, verts.map((v) => Math.hypot(v[0] - lb.x, v[1] - lb.y)));
+          if (d < 0.45) issues.push("lab" + i);
+        });
+        (q.labels || []).forEach((lb, i) => {
+          q.pieces.forEach((p) => {
+            if (Math.hypot(lb.x - p.at[0], lb.y - p.at[1]) < 0.85) issues.push("lab-letter" + i + p.letter);
+          });
+          for (let j = i + 1; j < q.labels.length; j++) {
+            const o = q.labels[j];
+            if (Math.hypot(lb.x - o.x, lb.y - o.y) < 1.05) issues.push("labs" + i + j);
+          }
+        });
+        const gs = q.guides || [];
+        const guideOk = (i) => Math.hypot(gs[i].b[0] - gs[i + 1].a[0], gs[i].b[1] - gs[i + 1].a[1]) < 0.05;
+        if (gs.length % 2 === 1) {
+          if (gs.length < 3 || !guideOk(gs.length - 2)) issues.push("guide");
+        } else {
+          for (let i = 0; i + 1 < gs.length; i += 2) if (!guideOk(i)) issues.push("guide" + i);
+        }
+        if (q.sample && !checkFinal(q.sample, q.pieces).ok) issues.push("sample " + (checkFinal(q.sample, q.pieces).err || ""));
+        return issues;
+      }
+      function runSelfTest() {
+        const fails = [];
+        const expect = (name, cond) => { if (!cond) fails.push(name); };
+        const okFinal = (q, expr) => checkFinal(expr, q.pieces).ok;
+        expect("ex", okFinal(GROUP[0], "12×4＋6×8÷2＝72"));
+        expect("exswap", okFinal(GROUP[0], "6×8÷2＋12×4＝72"));
+        expect("exfact", okFinal(GROUP[0], "4×12＋(8×6)÷2＝72"));
+        expect("exwrap", okFinal(GROUP[0], "(6×8÷2＋4×12)＝72"));
+        expect("exhalf", checkPiece("6×8", GROUP[0].pieces[1]).err === "half");
+        expect("g1", okFinal(GROUP[1], "5×6÷2＋9×2＝33"));
+        expect("g1swap", okFinal(GROUP[1], "9×2＋(5×6÷2)＝33"));
+        expect("g1bare", !okFinal(GROUP[1], "15＋18＝33"));
+        expect("g1minus", checkFinal("5×6÷2−9×2＝3", GROUP[1].pieces).err === "minus");
+        expect("g1half", checkPiece("5×6", GROUP[1].pieces[0]).err === "half");
+        expect("g2", okFinal(GROUP[2], "(15＋10)×6÷2＋(10＋20)×8÷2＝195"));
+        expect("g2move", okFinal(GROUP[2], "6×(10＋15)÷2＋8×(20＋10)÷2＝195"));
+        expect("g2dist", okFinal(GROUP[2], "15×6÷2＋10×6÷2＋20×8÷2＋10×8÷2＝195"));
+        expect("g3", okFinal(GROUP[3], "6×6＋6×4＋5×4＝80"));
+        expect("g3order", okFinal(GROUP[3], "5×4＋6×6＋6×4＝80"));
+        expect("i1", okFinal(INDIV[0], "(12＋36)×24÷2＋(12＋8)×10÷2＝676"));
+        expect("i2", okFinal(INDIV[1], "16×8＋11×12÷2＝194"));
+        expect("i2base", checkPiece("16×12÷2", INDIV[1].pieces[1]).err === "data");
+        expect("i3", okFinal(INDIV[2], "8×3＋8×5÷2＝44"));
+        expect("i4a", okFinal(INDIV[3], "9×(7−2)＋9×4＝81"));
+        expect("i4b", okFinal(INDIV[3], "9×7−9×2＋9×4＝81"));
+        expect("i4move", okFinal(INDIV[3], "9×7＋9×4−9×2＝81"));
+        expect("i4move2", okFinal(INDIV[3], "4×9−2×9＋7×9＝81"));
+        expect("i1move", okFinal(INDIV[0], "10÷2×(8＋12)＋24×(36＋12)÷2＝676"));
+        expect("i4bad", checkPiece("9×5", INDIV[3].pieces[0]).err === "data");
+        expect("i5", okFinal(INDIV[4], "(6＋10)×4÷2＋10×3＝62"));
+        expect("exdiv", okFinal(GROUP[0], "12×4＋8÷2×6＝72"));
+        expect("exchain", okFinal(GROUP[0], "12×4＋6×8÷2＝48＋24＝72"));
+        expect("exchainp", okFinal(GROUP[0], "(12×4)＋(6×8÷2)＝48＋24＝72"));
+        expect("exchainbad", checkFinal("12×4＋6×8÷2＝48＋24＝70", GROUP[0].pieces).err === "calc");
+        expect("exbare", !okFinal(GROUP[0], "48＋24＝72"));
+        expect("expiecechain", checkPiece("6×8÷2＝48÷2＝24", GROUP[0].pieces[1]).ok);
+        expect("g2chain", okFinal(GROUP[2], "(15＋10)×6÷2＋(10＋20)×8÷2＝75＋120＝195"));
+        expect("g2nop", checkFinal("15＋10×6÷2＋10＋20×8÷2＝195", GROUP[2].pieces).err === "paren");
+        expect("g2nop2", checkFinal("15＋10×6÷2＋20＋10×8÷2＝195", GROUP[2].pieces).err === "paren");
+        expect("g2nop3", checkFinal("10＋15×6÷2＋8×20＋10÷2＝195", GROUP[2].pieces).err === "paren");
+        expect("g2pem", checkFinal("15＋10×6÷2＋20＋10×8÷2＝105", GROUP[2].pieces).err === "paren");
+        expect("g2pieceOk", checkPiece("(15＋10)×6÷2", GROUP[2].pieces[0]).ok);
+        expect("g2pieceMove", checkPiece("6×(10＋15)÷2", GROUP[2].pieces[0]).ok);
+        expect("g2pieceDist", checkPiece("15×6÷2＋10×6÷2", GROUP[2].pieces[0]).ok);
+        expect("g2pieceHalf", checkPiece("(15＋10)×6", GROUP[2].pieces[0]).err === "half");
+        expect("i4nop", okFinal(INDIV[3], "9×7−2＋9×4＝81"));
+        expect("i4nop2", okFinal(INDIV[3], "9×4＋9×7−2＝81"));
+        expect("i4pem", checkFinal("9×7−2＋9×4＝97", INDIV[3].pieces).err === "calc");
+        expect("i1nop", checkFinal("12＋36×24÷2＋12＋8×10÷2＝676", INDIV[0].pieces).err === "paren");
+        expect("i1nop2", checkFinal("12＋36×24÷2＋8＋12×10÷2＝676", INDIV[0].pieces).err === "paren");
+        expect("i5nop", checkFinal("6＋10×4÷2＋10×3＝62", INDIV[4].pieces).err === "paren");
+        expect("i5nop2", checkFinal("6＋10×4÷2＋3×10＝62", INDIV[4].pieces).err === "paren");
+        expect("g2piece", checkPiece("15＋10×6÷2", GROUP[2].pieces[0]).err === "paren");
+        expect("i4piece", checkPiece("9×7−2", INDIV[3].pieces[0]).ok);
+        expect("i4pieceBad", checkPiece("9×7−2＝61", INDIV[3].pieces[0]).err === "calc");
+        expect("hyp", !okFinal(GROUP[0], "12×4＋10×6÷2＝72"));
+        expect("g1minus2", checkFinal("5×6÷2−9×2＝33", GROUP[1].pieces).err === "minus");
+        expect("noeq", checkFinal("5×6÷2＋9×2", GROUP[1].pieces).err === "eq");
+        expect("pick-wrap", okFinal(GROUP[0], "(12×4)＋(6×8÷2)＝72"));
+        expect("pick-swap", okFinal(GROUP[0], "(6×8÷2)＋(4×12)＝72"));
+        expect("pick-minus", checkFinal("(12×4)−(6×8÷2)＝24", GROUP[0].pieces).err === "minus");
+        expect("pick-times", checkFinal("(12×4)×(6×8÷2)＝72", GROUP[0].pieces).err === "calc");
+        expect("pick3", okFinal(GROUP[3], "(6×6)＋(6×4)＋(5×4)＝80"));
+        expect("pick-para", okFinal(INDIV[3], "(9×(7−2))＋(9×4)＝81"));
+        expect("pick-trap", okFinal(GROUP[2], "((15＋10)×6÷2)＋((10＋20)×8÷2)＝195"));
+        GROUP.concat(INDIV).forEach((q, i) => {
+          const area = shoelace(q.outline);
+          const want = q.pieces.reduce((n, p) => n + p.area, 0);
+          expect("area" + i + ":" + area + "/" + want, Math.abs(area - want) < 0.6);
+        });
+        if (!$("titleWave").innerHTML.includes("<br>")) fails.push("title-br");
+        state.classId = "5A"; state.studentId = "01"; state.mode = "group"; state.level = "basic";
+        const views = [
+          ["g0", GROUP[0], "basic", "group"],
+          ["g3", GROUP[3], "basic", "group"],
+          ["i0h", INDIV[0], "high", "class"],
+          ["i1b", INDIV[1], "basic", "class"],
+          ["i3", INDIV[3], "adv", "class"]
+        ];
+        views.forEach((v) => {
+          state.mode = v[3]; state.level = v[2]; state.q = v[1]; state.qi = 0; state.phase = "draw";
+          showScreen("game");
+          beginQuestion();
+          const kb = $("keypad").getBoundingClientRect();
+          const board = $("board").getBoundingClientRect();
+          if (v[3] === "group" && state.phase !== "draw") fails.push(v[0] + "-draw");
+          if (levelOf() !== "high" && state.phase !== "draw" && kb.bottom > window.innerHeight + 1) fails.push(v[0] + "-key");
+          if (board.height < 80) fails.push(v[0] + "-board" + Math.round(board.height));
+          if (state.phase === "draw" && $("work").innerHTML) fails.push(v[0] + "-work");
+        });
+        state.mode = "group"; state.level = "basic"; state.q = GROUP[3]; state.phase = "A";
+        state.flash = ""; state.buf = ""; state.locked = {}; state.ended = false;
+        showScreen("game");
+        renderChrome();
+        const gkb = $("keypad").getBoundingClientRect();
+        const workText = $("work").textContent;
+        if (gkb.bottom > window.innerHeight + 1) fails.push("g3-keys");
+        if (workText.includes("長×闊") || workText.includes("相加") || workText.includes("底×高")) fails.push("group-hint");
+        if (!workText.includes("圖形A面積") || !workText.includes("圖形C面積") || !workText.includes("多邊形面積")) fails.push("labs");
+        if (!$("keypad").textContent.includes("刪去")) fails.push("del");
+        if ($("keypad").textContent.includes("＝")) fails.push("eq-key");
+        if (!$("work").textContent.includes("＝")) fails.push("eq-shown");
+        if (!$("work").querySelector(".box.ans")) fails.push("group-ans");
+        state.mode = "class"; state.level = "high"; state.q = INDIV[0];
+        showScreen("game"); beginQuestion();
+        if (state.phase !== "draw") fails.push("high-starts-draw");
+        if ($("keypad").style.display !== "none") fails.push("high-keys");
+        state.level = "basic"; beginQuestion();
+        if (state.phase !== "A") fails.push("basic-phase");
+        if (!$("work").textContent.includes("底×高÷2") && !$("work").textContent.includes("上底")) fails.push("skeleton");
+        if ($("work").querySelector(".box.ans") || $("work").querySelector(".eq")) fails.push("class-ans");
+        const classKinds = CLASS.map((q) => q.pieces.map((p) => p.kind).join(","));
+        if (CLASS[0].pieces.length !== 2 || classKinds[0].indexOf("tri") < 0 || classKinds[0].indexOf("trap") >= 0) fails.push("class1");
+        if (CLASS[1].pieces.length !== 2 || classKinds[1].indexOf("trap") < 0) fails.push("class2");
+        if (CLASS[2].pieces.length !== 3 || CLASS[2].cuts.length !== 2) fails.push("class3");
+        GROUP.concat(CLASS).concat(HW_TWO.reduce((a, p) => a.concat(p), [])).concat(HW_THREE.reduce((a, p) => a.concat(p), [])).forEach((q) => {
+          const bad = auditQ(q);
+          if (bad.length) fails.push((q.sig || q.name) + ":" + bad.join(","));
+        });
+        function mulberry(a) {
+          return function () {
+            a |= 0; a = a + 0x6D2B79F5 | 0;
+            let t = Math.imul(a ^ a >>> 15, 1 | a);
+            t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+            return ((t ^ t >>> 14) >>> 0) / 4294967296;
+          };
+        }
+        const paperA = makeHomework([], "", mulberry(1));
+        const paperB = makeHomework(paperA.sigs, paperA.sigs.join("|"), mulberry(2));
+        if (paperA.questions.length !== 5 || paperB.questions.length !== 5) fails.push("hw-len");
+        if (paperA.sigs.join("|") === paperB.sigs.join("|")) fails.push("hw-same");
+        if (paperA.sigs.some((sig) => paperB.sigs.indexOf(sig) >= 0)) fails.push("hw-reuse");
+        [paperA, paperB].forEach((paper, pi) => {
+          const cuts = paper.questions.map((q) => q.cuts.length);
+          if (cuts[0] !== 1 || cuts[1] !== 1 || cuts[2] !== 1 || cuts[3] !== 2 || cuts[4] !== 2) fails.push("hw-cuts" + pi);
+          const kinds = new Set();
+          paper.questions.forEach((q) => q.pieces.forEach((p) => kinds.add(p.kind)));
+          if (!kinds.has("tri") || !kinds.has("para") || !kinds.has("trap")) fails.push("hw-kinds" + pi);
+        });
+        state.sheetSent = true;
+        state.ended = false;
+        state.mode = "class";
+        state.level = "high";
+        state.q = CLASS[0];
+        state.paper = null;
+        showScreen("game");
+        beginQuestion();
+        state.phase = "final";
+        state.finalExpr = "16×8＋11×12÷2";
+        state.formulaOk = false;
+        renderChrome();
+        if ($("work").querySelector(".box.ans")) fails.push("class-high-ans");
+        submitFinal(state.q);
+        if (state.phase !== "done") fails.push("class-high-finish");
+        if ((state.finalAns || "").trim()) fails.push("class-high-typed");
+        beginQuestion();
+        state.phase = "final";
+        state.finalExpr = "1＋2";
+        state.miss = blankMiss();
+        state.sheetSent = true;
+        submitFinal(state.q);
+        if (state.phase === "done" || state.formulaOk || missSum() < 1) fails.push("class-high-bad");
+        state.mode = "class";
+        state.level = "basic";
+        state.q = CLASS[0];
+        state.sheetSent = true;
+        state.ended = false;
+        beginQuestion();
+        state.locked = { A: "16×8", B: "11×12÷2" };
+        state.phase = "final";
+        state.finalPicks = ["B", "A"];
+        state.finalOps = ["＋"];
+        state.formulaOk = false;
+        renderChrome();
+        if ($("work").querySelector(".box.ans") || $("work").querySelector(".eq")) fails.push("class-pick-ans");
+        submitFinal(state.q);
+        if (state.phase !== "done") fails.push("class-pick-finish");
+        state.mode = "group";
+        state.level = "basic";
+        state.q = GROUP[0];
+        state.sheetSent = true;
+        state.ended = false;
+        beginQuestion();
+        state.locked = { A: "12×4", B: "6×8÷2" };
+        state.phase = "final";
+        state.finalPicks = ["A", "B"];
+        state.finalOps = ["＋"];
+        state.formulaOk = false;
+        renderChrome();
+        if (!$("work").querySelector(".box.ans")) fails.push("group-ans2");
+        submitFinal(state.q);
+        if (state.phase === "done" || !state.formulaOk) fails.push("group-gate");
+        if ($("hintBar").textContent !== "請寫出答案") fails.push("group-hint-ans:" + $("hintBar").textContent);
+        state.finalAns = "72";
+        submitFinal(state.q);
+        if (state.phase !== "done") fails.push("group-finish");
+        state.mode = "homework";
+        state.level = "adv";
+        state.q = INDIV[2];
+        state.paper = [INDIV[2], INDIV[2]];
+        state.qi = 0;
+        state.sheetSent = true;
+        state.ended = true;
+        beginQuestion();
+        state.locked = { A: "8×3", B: "8×5÷2" };
+        state.phase = "final";
+        state.finalPicks = ["A", "B"];
+        state.finalOps = ["＋"];
+        state.formulaOk = false;
+        state.ended = true;
+        renderChrome();
+        if (!$("work").querySelector(".box.ans")) fails.push("hw-ans");
+        submitFinal(state.q);
+        if (state.phase !== "final" || !state.formulaOk) fails.push("hw-gate");
+        if ($("hintBar").textContent !== "請寫出答案") fails.push("hw-hint-ans");
+        const labelQs = GROUP.concat(CLASS).concat(HW_TWO.reduce((a, p) => a.concat(p), [])).concat(HW_THREE.reduce((a, p) => a.concat(p), []));
+        showScreen("game");
+        const seenLbl = {};
+        labelQs.forEach((q) => {
+          state.q = q;
+          layoutCanvas();
+          const spots = placeLabels(q);
+          const bad = [];
+          spots.forEach((spot, i) => {
+            if (!spot.seg) { bad.push(i + ":none"); return; }
+            const rect = { l: spot.x - spot.hw, t: spot.y - spot.up, r: spot.x + spot.hw, b: spot.y + spot.down };
+            const pa = S(spot.seg.a[0], spot.seg.a[1]);
+            const pb = S(spot.seg.b[0], spot.seg.b[1]);
+            const mx = (pa[0] + pb[0]) / 2, my = (pa[1] + pb[1]) / 2;
+            const dx = pb[0] - pa[0], dy = pb[1] - pa[1];
+            const len = Math.hypot(dx, dy) || 1;
+            const along = ((spot.x - mx) * dx + (spot.y - my) * dy) / len;
+            const perp = Math.abs((spot.x - mx) * (-dy) + (spot.y - my) * dx) / len;
+            const tag = i + spot.t;
+            if (Math.abs(along) > 30) bad.push(tag + ":off");
+            if (spot.seg.kind === "height") {
+              if (Math.hypot(spot.x - mx, spot.y - my) > 30) bad.push(tag + ":high");
+              if (!segHitsAabb(pa[0], pa[1], pb[0], pb[1], rect)) bad.push(tag + ":nodash");
+            } else {
+              const tight = { l: rect.l + 1, t: rect.t + 1, r: rect.r - 1, b: rect.b - 1 };
+              if (segHitsAabb(pa[0], pa[1], pb[0], pb[1], tight)) bad.push(tag + ":hit");
+              if (perp > 78) bad.push(tag + ":far");
+              if (perp < 6) bad.push(tag + ":close");
+            }
+            if (rect.l < -2 || rect.t < -2 || rect.r > state.cssW + 2 || rect.b > state.cssH + 2) bad.push(tag + ":clip");
+          });
+          for (let i = 0; i < spots.length; i++) {
+            for (let j = i + 1; j < spots.length; j++) {
+              const a = { l: spots[i].x - spots[i].hw, t: spots[i].y - spots[i].up, r: spots[i].x + spots[i].hw, b: spots[i].y + spots[i].down };
+              const b = { l: spots[j].x - spots[j].hw, t: spots[j].y - spots[j].up, r: spots[j].x + spots[j].hw, b: spots[j].y + spots[j].down };
+              if (a.l < b.r - 1 && b.l < a.r - 1 && a.t < b.b - 1 && b.t < a.b - 1) bad.push(spots[i].t + "/" + spots[j].t + ":stack");
+            }
+          }
+          if (bad.length) {
+            const key = (q.sig || q.name) + ":" + bad.join(",");
+            if (!seenLbl[key] && Object.keys(seenLbl).length < 14) {
+              seenLbl[key] = 1;
+              fails.push("lbl:" + key);
+            }
+          }
+        });
+        state.mode = "group";
+        state.q = GROUP[0];
+        state.phase = "done";
+        state.miss = blankMiss();
+        state.sheetSent = true;
+        state.ended = false;
+        renderChrome();
+        if (!$("savePicBtn") || $("savePicBtn").textContent !== "儲存並返回") fails.push("ex-save");
+        if ($("keypad").querySelector("[data-k='返回題目']")) fails.push("ex-back");
+        if ($("timerWrap").style.display === "none") fails.push("ex-timer");
+        if ($("hintCount").textContent !== "提示0次") fails.push("ex-hint:" + $("hintCount").textContent);
+        state.sheetSent = false;
+        state.ended = false;
+        state.startedAt = Date.now() - 5000;
+        state.elapsed = 0;
+        postCurrent();
+        if (state.sheetSent) fails.push("ex-sheet");
+        if (!state.ended || state.elapsed < 4) fails.push("ex-freeze");
+        state.sheetSent = true;
+        state.ended = false;
+        state.q = GROUP[1];
+        renderChrome();
+        if (!$("savePicBtn") || $("savePicBtn").textContent !== "儲存並返回") fails.push("g1-save");
+        if ($("timerWrap").style.display === "none") fails.push("g1-timer");
+        if ($("hintCount").textContent !== "提示0次") fails.push("hint0:" + $("hintCount").textContent);
+        state.miss.A = 2;
+        renderChrome();
+        if ($("hintCount").textContent !== "提示2次") fails.push("hint2");
+        const missTxt = $("keypad").textContent;
+        if (missTxt.indexOf("成績診斷：") < 0) fails.push("miss-title");
+        if (missTxt.indexOf("• 圖形A算式錯誤（2次）") < 0) fails.push("miss-line");
+        const missBg = getComputedStyle($("keypad").querySelector(".miss-line")).backgroundColor;
+        if (!missBg || missBg === "rgba(0, 0, 0, 0)" || missBg === "transparent") fails.push("miss-bg");
+        const playBox = document.querySelector("#screen-game .play");
+        if (playBox && playBox.scrollHeight > playBox.clientHeight + 2) fails.push("play-over");
+        state.mode = "class";
+        state.level = "adv";
+        state.q = CLASS[1];
+        state.miss = blankMiss();
+        state.miss.half = 1;
+        const tag = diagnose().sheet;
+        if (tag.indexOf("個人｜進階｜第二題\n") !== 0) fails.push("tag");
+        state.penalty = 0;
+        state.startedAt = Date.now();
+        state.ended = false;
+        applyPenalty();
+        if (state.penalty !== 0) fails.push("penalty");
+        const parsedEx = parseTrack("小組｜例題\n• 圖形A算式錯誤（1次）");
+        if (parsedEx.qname !== "例題" || parsedEx.hints !== 1) fails.push("parse-ex");
+        const rankTop = bestPerStudent([
+          { classId: "5A", studentId: "01", done: 1, avgSec: 9, track: "個人" },
+          { classId: "5A", studentId: "02", done: 4, avgSec: 20, track: "功課" }
+        ].filter((e) => e.track === "功課"));
+        if (rankTop.length !== 1 || rankTop[0].studentId !== "02") fails.push("rank-hw");
+        const tops = topMisses([
+          { body: "• 漏除以2（2次）\n• 分割後資料不足（1次）" },
+          { body: "• 漏除以2（1次）\n• 分割後圖形資料不足（2次）" },
+          { body: "零失誤" }
+        ], 3);
+        const topMap = Object.fromEntries(tops);
+        if (tops.length !== 2 || topMap["漏除以2"] !== 3 || topMap["分割後圖形資料不足"] !== 3) fails.push("top-miss");
+        showScreen("game");
+        state.mode = "class";
+        state.level = "high";
+        state.q = CLASS[0];
+        state.phase = "done";
+        state.miss = blankMiss();
+        renderChrome();
+        layoutCanvas();
+        draw();
+        const shot = buildShotCanvas();
+        if (!shot || shot.width < 100 || shot.height < 100) fails.push("shot");
+        showMode("root");
+        const rootTxt = $("modeActs").textContent;
+        if (rootTxt.indexOf("課堂（小組）") < 0 || rootTxt.indexOf("課堂（個人）") < 0 || rootTxt.indexOf("功課") < 0) fails.push("root-btns");
+        state.level = "adv";
+        showMode("classQ");
+        if ($("modeActs").textContent.indexOf("第一題") < 0 || $("modeActs").textContent.indexOf("第三題") < 0) fails.push("class-q");
+        return fails.length ? "FAIL " + fails.join(" | ") : "PASS";
+      }
+    })();
+  </script>
+</body>
+</html>
