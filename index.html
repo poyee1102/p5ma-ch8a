@@ -489,20 +489,18 @@
       const PENALTY_SECS = 30;
       const HW_TOTAL = 5;
       const TITLE = "面積魔術師：多邊形（分割法）";
-      const MISS_ORDER = ["cut", "data", "paren", "halfTri", "halfTrap", "minus", "pick", "same", "A", "B", "C", "calc"];
+      const MISS_ORDER = ["cut", "data", "paren", "halfTri", "halfTrap", "minus", "pick", "same", "formula", "calc"];
       const MISS_LABEL = {
         cut: "分割後圖形資料不足",
-        data: "用錯長度",
+        data: "圖形用長度",
         paren: "梯形漏括號",
         halfTri: "三角形漏除以2",
         halfTrap: "梯形漏除以2",
         minus: "分割錯用減法",
-        pick: "算式選擇錯誤",
+        pick: "符號選擇錯誤",
         same: "圖形重複選擇",
-        A: "圖形A算式錯誤",
-        B: "圖形B算式錯誤",
-        C: "圖形C算式錯誤",
-        calc: "計算錯誤"
+        formula: "圖形算式錯誤",
+        calc: "面積計算錯誤"
       };
 
       const GROUP = [
@@ -1117,7 +1115,7 @@
       const scene = $("scene");
 
       function blankMiss() {
-        return { cut: 0, data: 0, paren: 0, halfTri: 0, halfTrap: 0, A: 0, B: 0, C: 0, minus: 0, pick: 0, same: 0, calc: 0 };
+        return { cut: 0, data: 0, paren: 0, halfTri: 0, halfTrap: 0, minus: 0, pick: 0, same: 0, formula: 0, calc: 0 };
       }
       function levelOf() { return state.mode === "group" ? "basic" : state.level; }
       function isExample() { return state.mode === "group" && !!(state.q && state.q.name === "例題"); }
@@ -1704,6 +1702,10 @@
           let label = m[1].replace(/^[\s•]+/, "").trim();
           if (!label || label === "零失誤") continue;
           if (label === "分割後資料不足") label = "分割後圖形資料不足";
+          if (label === "圖形A算式錯誤" || label === "圖形B算式錯誤" || label === "圖形C算式錯誤") label = "圖形算式錯誤";
+          if (label === "用錯長度") label = "圖形用長度";
+          if (label === "算式選擇錯誤") label = "符號選擇錯誤";
+          if (label === "計算錯誤") label = "面積計算錯誤";
           const n = Number(m[2]) || 0;
           if (n) items.push([label, n]);
         }
@@ -2749,7 +2751,7 @@
         if (err === "cut") return "cut";
         if (err === "data") return "data";
         if (err === "paren") return "paren";
-        if (err === "piece" || err === "side") return letter === "B" || letter === "C" ? letter : "A";
+        if (err === "piece" || err === "side") return "formula";
         return "calc";
       }
       function noteMiss(err, letter, kind) {
@@ -3724,15 +3726,15 @@
         const sideFinal = checkFinal("12×4＋6×10÷2＝78", GROUP[0].pieces);
         expect("side-final", sideFinal.err === "side" && sideFinal.letter === "B");
         expect("lab-cut", missKey("cut") === "cut" && MISS_LABEL.cut === "分割後圖形資料不足" && feedback("cut") === "分割後圖形資料不足");
-        expect("lab-data", missKey("data") === "data" && MISS_LABEL.data === "用錯長度" && feedback("data") === "請用圖上的長度");
+        expect("lab-data", missKey("data") === "data" && MISS_LABEL.data === "圖形用長度" && feedback("data") === "請用圖上的長度");
         expect("lab-paren", missKey("paren", "A", "trap") === "paren" && MISS_LABEL.paren === "梯形漏括號" && feedback("paren") === "請先加上底同下底");
         expect("lab-half-tri", missKey("half", "B", "tri") === "halfTri" && MISS_LABEL.halfTri === "三角形漏除以2" && feedback("half", "B", "tri") === "三角形面積是一半");
         expect("lab-half-trap", missKey("half", "A", "trap") === "halfTrap" && MISS_LABEL.halfTrap === "梯形漏除以2" && feedback("half", "A", "trap") === "梯形面積是一半");
         expect("lab-minus", missKey("minus") === "minus" && MISS_LABEL.minus === "分割錯用減法" && feedback("minus") === "分割後要相加");
-        expect("lab-op", missKey("op") === "pick" && MISS_LABEL.pick === "算式選擇錯誤" && feedback("op") === "分割後要相加");
+        expect("lab-op", missKey("op") === "pick" && MISS_LABEL.pick === "符號選擇錯誤" && feedback("op") === "分割後要相加");
         expect("lab-same", missKey("same") === "same" && MISS_LABEL.same === "圖形重複選擇" && feedback("same") === "請每個圖形選一次");
-        expect("lab-side", missKey("side", "B") === "B" && feedback("side", "B") === "請再計算");
-        expect("lab-calc", missKey("calc") === "calc" && MISS_LABEL.calc === "計算錯誤" && feedback("calc") === "請再計算");
+        expect("lab-side", missKey("side", "B") === "formula" && missKey("piece", "A") === "formula" && missKey("piece", "C") === "formula" && MISS_LABEL.formula === "圖形算式錯誤" && feedback("side", "B") === "請再計算");
+        expect("lab-calc", missKey("calc") === "calc" && MISS_LABEL.calc === "面積計算錯誤" && feedback("calc") === "請再計算");
         expect("pick3", okFinal(GROUP[3], "(6×6)＋(6×4)＋(5×4)＝80"));
         expect("pick-para", okFinal(INDIV[3], "(9×(7−2))＋(9×4)＝81"));
         expect("pick-trap", okFinal(GROUP[2], "((15＋10)×6÷2)＋((10＋20)×8÷2)＝195"));
@@ -3957,12 +3959,12 @@
         if (!$("savePicBtn") || $("savePicBtn").textContent !== "儲存並返回") fails.push("g1-save");
         if ($("timerWrap").style.display === "none") fails.push("g1-timer");
         if ($("hintCount").textContent !== "提示0次") fails.push("hint0:" + $("hintCount").textContent);
-        state.miss.A = 2;
+        state.miss.formula = 2;
         renderChrome();
         if ($("hintCount").textContent !== "提示2次") fails.push("hint2");
         const missTxt = $("keypad").textContent;
         if (missTxt.indexOf("成績診斷：") < 0) fails.push("miss-title");
-        if (missTxt.indexOf("• 圖形A算式錯誤（2次）") < 0) fails.push("miss-line");
+        if (missTxt.indexOf("• 圖形算式錯誤（2次）") < 0) fails.push("miss-line");
         const missBg = getComputedStyle($("keypad").querySelector(".miss-line")).backgroundColor;
         if (!missBg || missBg === "rgba(0, 0, 0, 0)" || missBg === "transparent") fails.push("miss-bg");
         const playBox = document.querySelector("#screen-game .play");
