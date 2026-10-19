@@ -489,15 +489,19 @@
       const PENALTY_SECS = 30;
       const HW_TOTAL = 5;
       const TITLE = "面積魔術師：多邊形（分割法）";
-      const MISS_ORDER = ["data", "A", "B", "C", "minus", "half", "pick", "calc"];
+      const MISS_ORDER = ["cut", "data", "paren", "halfTri", "halfTrap", "minus", "pick", "same", "A", "B", "C", "calc"];
       const MISS_LABEL = {
-        data: "分割後圖形資料不足",
+        cut: "分割後圖形資料不足",
+        data: "用錯長度",
+        paren: "梯形漏括號",
+        halfTri: "三角形漏除以2",
+        halfTrap: "梯形漏除以2",
+        minus: "分割錯用減法",
+        pick: "算式選擇錯誤",
+        same: "圖形重複選擇",
         A: "圖形A算式錯誤",
         B: "圖形B算式錯誤",
         C: "圖形C算式錯誤",
-        minus: "應用了減法",
-        half: "漏除以2",
-        pick: "算式選擇錯誤",
         calc: "計算錯誤"
       };
 
@@ -1113,7 +1117,7 @@
       const scene = $("scene");
 
       function blankMiss() {
-        return { data: 0, A: 0, B: 0, C: 0, minus: 0, half: 0, pick: 0, calc: 0 };
+        return { cut: 0, data: 0, paren: 0, halfTri: 0, halfTrap: 0, A: 0, B: 0, C: 0, minus: 0, pick: 0, same: 0, calc: 0 };
       }
       function levelOf() { return state.mode === "group" ? "basic" : state.level; }
       function isExample() { return state.mode === "group" && !!(state.q && state.q.name === "例題"); }
@@ -1239,28 +1243,39 @@
         let s = normalize(raw);
         if (!s) return { ok: false, err: "piece" };
         const eq = topSplit(s, "=");
-        if (eq.length > 1) {
+        let rightOk = true;
+        const hasEq = eq.length > 1;
+        if (hasEq) {
           if (eq.some((part) => !part)) return { ok: false, err: "piece" };
-          const rightOk = eq.slice(1).every((part) => {
+          rightOk = eq.slice(1).every((part) => {
             const v = evalExpr(part);
             return v != null && nearly(v, piece.area);
           });
-          if (!rightOk) return { ok: false, err: "calc" };
           s = eq[0];
         }
         if (!/[+\-*/]/.test(s)) return { ok: false, err: "piece" };
         const allow = new Set(piece.nums.concat([2]));
         if (numbersIn(s).some((n) => !allow.has(n))) return { ok: false, err: "data" };
         if (piece.kind === "trap" && trapNeedsParen(s, [piece])) return { ok: false, err: "paren", kind: "trap" };
-        if (pieceTokenOk(s, piece)) return { ok: true };
+        if (pieceTokenOk(s, piece) || evalMatchesArea(s, piece)) {
+          if (hasEq && !rightOk) return { ok: false, err: "calc" };
+          return { ok: true };
+        }
         const v = evalExpr(s);
         if (v == null) return { ok: false, err: "piece" };
         if (piece.div2 && !/\/2(?!\d)/.test(s)) {
           if (nearly(v, piece.area * 2)) return { ok: false, err: "half", kind: piece.kind };
           return { ok: false, err: "piece" };
         }
-        if (!nearly(v, piece.area)) return { ok: false, err: "calc" };
+        if (!nearly(v, piece.area)) return { ok: false, err: "side" };
+        if (hasEq && !rightOk) return { ok: false, err: "calc" };
         return { ok: true };
+      }
+      function evalMatchesArea(s, piece) {
+        const v = evalExpr(s);
+        if (v == null || !nearly(v, piece.area)) return false;
+        if (piece.div2 && !/\/2(?!\d)/.test(s)) return false;
+        return true;
       }
       function matchAll(parts, pieces) {
         if (parts.length !== pieces.length) return false;
@@ -1553,12 +1568,12 @@
             }
             if (hit >= 0) { used.add(hit); continue; }
             let chosen = null;
+            const rank = (err) => err === "side" || err === "half" || err === "paren" || err === "calc" ? 3 : err === "piece" ? 2 : err === "data" ? 1 : 0;
             for (let i = 0; i < pieces.length; i++) {
               if (used.has(i)) continue;
               const r = checkPiece(part, pieces[i]);
-              const item = { err: r.err, letter: pieces[i].letter, kind: pieces[i].kind };
-              if (!chosen) chosen = item;
-              if (r.err === "half" || r.err === "data" || r.err === "calc") { chosen = item; break; }
+              const item = { err: r.err, letter: pieces[i].letter, kind: r.kind || pieces[i].kind };
+              if (!chosen || rank(item.err) > rank(chosen.err)) chosen = item;
             }
             fail = chosen || { err: "calc", letter: pieces[0].letter };
             break;
@@ -1572,7 +1587,25 @@
         }
         if (minusHit) return { ok: false, err: "minus" };
         if (trapNeedsParen(left, pieces)) return { ok: false, err: "paren", kind: "trap" };
-        return { ok: false, err: "calc", letter: pieces[0].letter };
+        const factors = topFactors(left);
+        if (factors.length === pieces.length && matchAll(factors, pieces)) return { ok: false, err: "op" };
+        return { ok: false, err: "calc" };
+      }
+      function topFactors(s) {
+        const parts = [];
+        let depth = 0, start = 0, saw = false;
+        for (let i = 0; i < s.length; i++) {
+          const c = s[i];
+          if (c === "(") depth += 1;
+          else if (c === ")") depth -= 1;
+          else if ((c === "*" || c === "/") && depth === 0) {
+            saw = true;
+            if (i > start) parts.push(s.slice(start, i));
+            start = i + 1;
+          }
+        }
+        if (start < s.length) parts.push(s.slice(start));
+        return saw ? parts : [];
       }
 
       function loadStore() {
@@ -1771,7 +1804,7 @@
         db.logs.push({
           classId: state.classId, studentId: normalizeId(state.studentId),
           done: state.done, avgSec: state.elapsed, diagnosis: d.sheet,
-          halfErr: state.miss.half, dataErr: state.miss.data, time: nowText()
+          halfErr: (state.miss.halfTri || 0) + (state.miss.halfTrap || 0), dataErr: state.miss.data, time: nowText()
         });
         saveStore(db);
         return d;
@@ -2708,16 +2741,19 @@
         if (err === "piece" && letter) return "請再列圖形" + letter + "面積";
         return "請再計算";
       }
-      function missKey(err, letter) {
-        if (err === "half") return "half";
+      function missKey(err, letter, kind) {
+        if (err === "half") return kind === "trap" ? "halfTrap" : "halfTri";
         if (err === "minus") return "minus";
-        if (err === "same" || err === "op") return "pick";
-        if (err === "data" || err === "cut") return "data";
-        if (err === "piece") return letter === "B" || letter === "C" ? letter : "A";
+        if (err === "op") return "pick";
+        if (err === "same") return "same";
+        if (err === "cut") return "cut";
+        if (err === "data") return "data";
+        if (err === "paren") return "paren";
+        if (err === "piece" || err === "side") return letter === "B" || letter === "C" ? letter : "A";
         return "calc";
       }
       function noteMiss(err, letter, kind) {
-        const key = missKey(err, letter);
+        const key = missKey(err, letter, kind);
         state.miss[key] += 1;
         state.flash = feedback(err, letter, kind);
         applyPenalty();
@@ -3683,7 +3719,20 @@
         expect("pick-wrap", okFinal(GROUP[0], "(12×4)＋(6×8÷2)＝72"));
         expect("pick-swap", okFinal(GROUP[0], "(6×8÷2)＋(4×12)＝72"));
         expect("pick-minus", checkFinal("(12×4)−(6×8÷2)＝24", GROUP[0].pieces).err === "minus");
-        expect("pick-times", checkFinal("(12×4)×(6×8÷2)＝72", GROUP[0].pieces).err === "calc");
+        expect("pick-times", checkFinal("(12×4)×(6×8÷2)＝72", GROUP[0].pieces).err === "op");
+        expect("side10", checkPiece("6×10÷2", GROUP[0].pieces[1]).err === "side");
+        const sideFinal = checkFinal("12×4＋6×10÷2＝78", GROUP[0].pieces);
+        expect("side-final", sideFinal.err === "side" && sideFinal.letter === "B");
+        expect("lab-cut", missKey("cut") === "cut" && MISS_LABEL.cut === "分割後圖形資料不足" && feedback("cut") === "分割後圖形資料不足");
+        expect("lab-data", missKey("data") === "data" && MISS_LABEL.data === "用錯長度" && feedback("data") === "請用圖上的長度");
+        expect("lab-paren", missKey("paren", "A", "trap") === "paren" && MISS_LABEL.paren === "梯形漏括號" && feedback("paren") === "請先加上底同下底");
+        expect("lab-half-tri", missKey("half", "B", "tri") === "halfTri" && MISS_LABEL.halfTri === "三角形漏除以2" && feedback("half", "B", "tri") === "三角形面積是一半");
+        expect("lab-half-trap", missKey("half", "A", "trap") === "halfTrap" && MISS_LABEL.halfTrap === "梯形漏除以2" && feedback("half", "A", "trap") === "梯形面積是一半");
+        expect("lab-minus", missKey("minus") === "minus" && MISS_LABEL.minus === "分割錯用減法" && feedback("minus") === "分割後要相加");
+        expect("lab-op", missKey("op") === "pick" && MISS_LABEL.pick === "算式選擇錯誤" && feedback("op") === "分割後要相加");
+        expect("lab-same", missKey("same") === "same" && MISS_LABEL.same === "圖形重複選擇" && feedback("same") === "請每個圖形選一次");
+        expect("lab-side", missKey("side", "B") === "B" && feedback("side", "B") === "請再計算");
+        expect("lab-calc", missKey("calc") === "calc" && MISS_LABEL.calc === "計算錯誤" && feedback("calc") === "請再計算");
         expect("pick3", okFinal(GROUP[3], "(6×6)＋(6×4)＋(5×4)＝80"));
         expect("pick-para", okFinal(INDIV[3], "(9×(7−2))＋(9×4)＝81"));
         expect("pick-trap", okFinal(GROUP[2], "((15＋10)×6÷2)＋((10＋20)×8÷2)＝195"));
@@ -3922,7 +3971,7 @@
         state.level = "adv";
         state.q = CLASS[1];
         state.miss = blankMiss();
-        state.miss.half = 1;
+        state.miss.halfTri = 1;
         const tag = diagnose().sheet;
         if (tag.indexOf("個人｜進階｜第二題\n") !== 0) fails.push("tag");
         state.penalty = 0;
