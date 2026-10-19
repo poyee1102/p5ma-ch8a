@@ -492,7 +492,7 @@
       const MISS_ORDER = ["cut", "data", "paren", "halfTri", "halfTrap", "minus", "pick", "same", "formula", "calc"];
       const MISS_LABEL = {
         cut: "分割後圖形資料不足",
-        data: "圖形用長度",
+        data: "圖形錯用長度",
         paren: "梯形漏括號",
         halfTri: "三角形漏除以2",
         halfTrap: "梯形漏除以2",
@@ -1703,7 +1703,7 @@
           if (!label || label === "零失誤") continue;
           if (label === "分割後資料不足") label = "分割後圖形資料不足";
           if (label === "圖形A算式錯誤" || label === "圖形B算式錯誤" || label === "圖形C算式錯誤") label = "圖形算式錯誤";
-          if (label === "用錯長度") label = "圖形用長度";
+          if (label === "用錯長度" || label === "圖形用長度") label = "圖形錯用長度";
           if (label === "算式選擇錯誤") label = "符號選擇錯誤";
           if (label === "計算錯誤") label = "面積計算錯誤";
           const n = Number(m[2]) || 0;
@@ -3726,7 +3726,7 @@
         const sideFinal = checkFinal("12×4＋6×10÷2＝78", GROUP[0].pieces);
         expect("side-final", sideFinal.err === "side" && sideFinal.letter === "B");
         expect("lab-cut", missKey("cut") === "cut" && MISS_LABEL.cut === "分割後圖形資料不足" && feedback("cut") === "分割後圖形資料不足");
-        expect("lab-data", missKey("data") === "data" && MISS_LABEL.data === "圖形用長度" && feedback("data") === "請用圖上的長度");
+        expect("lab-data", missKey("data") === "data" && MISS_LABEL.data === "圖形錯用長度" && feedback("data") === "請用圖上的長度");
         expect("lab-paren", missKey("paren", "A", "trap") === "paren" && MISS_LABEL.paren === "梯形漏括號" && feedback("paren") === "請先加上底同下底");
         expect("lab-half-tri", missKey("half", "B", "tri") === "halfTri" && MISS_LABEL.halfTri === "三角形漏除以2" && feedback("half", "B", "tri") === "三角形面積是一半");
         expect("lab-half-trap", missKey("half", "A", "trap") === "halfTrap" && MISS_LABEL.halfTrap === "梯形漏除以2" && feedback("half", "A", "trap") === "梯形面積是一半");
