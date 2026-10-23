@@ -702,9 +702,10 @@
           labels: [
             { t: "9 cm", x: 4.5, y: -0.65 },
             { t: "4 cm", x: 9.5, y: 2 },
-            { t: "7 cm", x: -0.45, y: 6.5 },
-            { t: "2 cm", x: 1, y: 9.45 },
-            { t: "高", x: 11, y: 6.5 }
+            { t: "7 cm", x: 9.9, y: 7.7 },
+            { t: "2 cm", x: 1, y: 9.55 },
+            { t: "2 cm", x: 10, y: 3.35 },
+            { t: "高", x: 12.15, y: 6.5 }
           ],
           guides: [
             { a: [0, 9], b: [2, 9] },
@@ -2427,7 +2428,8 @@
           const up = (metrics.actualBoundingBoxAscent || 11) + stroke;
           const down = (metrics.actualBoundingBoxDescent || 4) + stroke;
           const spot = { t: lb.t, x: mx, y: my, hw: halfW, up: up, down: down, seg: seg, placed: false };
-          if (seg.kind === "height") {
+          const bareHeight = String(lb.t).replace(/\s+/g, "").indexOf("高") === 0 && labelValue(lb.t) == null;
+          if (seg.kind === "height" && !bareHeight) {
             spot.x = mx; spot.y = my; spot.mx = mx; spot.my = my; spot.tx = tx; spot.ty = ty; spot.slen = slen;
             return spot;
           }
